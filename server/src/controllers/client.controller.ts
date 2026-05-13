@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
 import prisma from "../lib/prisma";
-import { ClientStatus } from "../generated/prisma/enums";
+import { ClientStatus, PaymentType } from "../generated/prisma/enums";
 
 export const getClients = async (
   req: Request,
@@ -18,7 +18,7 @@ export const getClients = async (
       ? {
           OR: [
             { name: { contains: search as string } },
-            { domain: { is: { name: { contains: search as string } } } },
+            { domain: { contains: search as string } },
             { phoneNumber: { contains: search as string } },
             { regNumber: { contains: search as string } },
           ],
@@ -33,7 +33,10 @@ export const getClients = async (
       skip,
       take: limitNum,
       orderBy: { createdAt: "desc" },
-      include: { domain: { select: { id: true, name: true } } },
+      include: {
+        system: { select: { id: true, name: true, photo: true } },
+        paymentSchedules: { orderBy: { day: "asc" } },
+      },
     }),
     prisma.client.count({ where }),
   ]);
@@ -48,7 +51,10 @@ export const getClientById = async (
   const id = parseInt(req.params.id as string);
   const client = await prisma.client.findUnique({
     where: { id },
-    include: { domain: { select: { id: true, name: true } } },
+    include: {
+      system: { select: { id: true, name: true, photo: true } },
+      paymentSchedules: { orderBy: { day: "asc" } },
+    },
   });
 
   if (!client) {
@@ -65,19 +71,20 @@ export const createClient = async (
 ): Promise<void> => {
   const {
     name,
-    invoice,
-    paymentDate,
+    paymentType,
     status,
-    domainId,
+    domain,
     notes,
     regNumber,
     phoneNumber,
     phoneNumber2,
     email,
     productType,
+    systemId,
+    paymentSchedules,
   } = req.body;
 
-  if (!name || invoice === undefined || !paymentDate || !status || !phoneNumber) {
+  if (!name || !phoneNumber) {
     res.status(400).json({ message: "Шаардлагатай өгөгдөл оруулна уу" });
     return;
   }
@@ -85,18 +92,27 @@ export const createClient = async (
   const client = await prisma.client.create({
     data: {
       name,
-      invoice: parseFloat(invoice),
-      paymentDate,
-      status,
-      domainId: domainId ? parseInt(domainId) : null,
+      paymentType: (paymentType as PaymentType) || "rent",
+      status: status || "active",
+      domain: domain || null,
+      systemId: systemId ? parseInt(systemId) : null,
       notes,
       regNumber,
       phoneNumber,
       phoneNumber2,
       email,
       productType,
+      paymentSchedules: {
+        create: (paymentSchedules || []).map((ps: { day: number; amount: number }) => ({
+          day: ps.day,
+          amount: ps.amount,
+        })),
+      },
     },
-    include: { domain: { select: { id: true, name: true } } },
+    include: {
+      system: { select: { id: true, name: true, photo: true } },
+      paymentSchedules: { orderBy: { day: "asc" } },
+    },
   });
 
   res.status(201).json(client);
@@ -109,16 +125,17 @@ export const updateClient = async (
   const id = parseInt(req.params.id as string);
   const {
     name,
-    invoice,
-    paymentDate,
+    paymentType,
     status,
-    domainId,
+    domain,
     notes,
     regNumber,
     phoneNumber,
     phoneNumber2,
     email,
     productType,
+    systemId,
+    paymentSchedules,
   } = req.body;
 
   const existing = await prisma.client.findUnique({ where: { id } });
@@ -132,18 +149,30 @@ export const updateClient = async (
     where: { id },
     data: {
       ...(name !== undefined && { name }),
-      ...(invoice !== undefined && { invoice: parseFloat(invoice) }),
-      ...(paymentDate !== undefined && { paymentDate }),
+      ...(paymentType !== undefined && { paymentType: paymentType as PaymentType }),
       ...(status !== undefined && { status }),
-      ...(domainId !== undefined && { domainId: domainId ? parseInt(domainId) : null }),
+      ...(domain !== undefined && { domain: domain || null }),
+      ...(systemId !== undefined && { systemId: systemId ? parseInt(systemId) : null }),
       ...(notes !== undefined && { notes }),
       ...(regNumber !== undefined && { regNumber }),
       ...(phoneNumber !== undefined && { phoneNumber }),
       ...(phoneNumber2 !== undefined && { phoneNumber2 }),
       ...(email !== undefined && { email }),
       ...(productType !== undefined && { productType }),
+      ...(paymentSchedules !== undefined && {
+        paymentSchedules: {
+          deleteMany: {},
+          create: (paymentSchedules || []).map((ps: { day: number; amount: number }) => ({
+            day: ps.day,
+            amount: ps.amount,
+          })),
+        },
+      }),
     },
-    include: { domain: { select: { id: true, name: true } } },
+    include: {
+      system: { select: { id: true, name: true, photo: true } },
+      paymentSchedules: { orderBy: { day: "asc" } },
+    },
   });
 
   res.json(client);

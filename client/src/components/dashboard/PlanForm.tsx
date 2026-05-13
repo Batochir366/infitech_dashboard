@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, ChevronDown, X } from "lucide-react"
+import { Plus, Trash2, X } from "lucide-react"
 import { usePlan, useCreatePlan, useUpdatePlan } from "../../hooks/usePlans"
 import { useModules } from "../../hooks/useModules"
-import { useDomains } from "../../hooks/useDomains"
 import { Button } from "../ui/Button"
 import { Input } from "../ui/Input"
 import { NumberInput } from "../ui/NumberInput"
@@ -51,15 +50,13 @@ export function PlanForm({ planId, defaultModuleId, onSuccess, onCancel }: PlanF
   const isEdit = !!planId
   const { data: plan, isLoading: isFetching } = usePlan(planId ?? 0)
   const { data: modulesData } = useModules({ limit: 100 })
-  const { data: domainsData } = useDomains({ limit: 100 })
   const createPlan = useCreatePlan()
   const updatePlan = useUpdatePlan()
 
   const [items, setItems] = useState<string[]>([])
   const [newItem, setNewItem] = useState("")
   const [selectedDomains, setSelectedDomains] = useState<string[]>([])
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [newDomain, setNewDomain] = useState("")
 
   const {
     register,
@@ -109,16 +106,6 @@ export function PlanForm({ planId, defaultModuleId, onSuccess, onCancel }: PlanF
     )
   }, [selectedDomains, setValue])
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
   const addItem = () => {
     const trimmed = newItem.trim()
     if (!trimmed) return
@@ -128,6 +115,17 @@ export function PlanForm({ planId, defaultModuleId, onSuccess, onCancel }: PlanF
 
   const removeItem = (index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addAllowedDomain = () => {
+    const trimmed = newDomain.trim()
+    if (!trimmed) return
+    const dup = selectedDomains.some(
+      (d) => d.toLowerCase() === trimmed.toLowerCase()
+    )
+    if (dup) return
+    setSelectedDomains((prev) => [...prev, trimmed])
+    setNewDomain("")
   }
 
   const onSubmit = async (data: PlanFormValues) => {
@@ -246,10 +244,9 @@ export function PlanForm({ planId, defaultModuleId, onSuccess, onCancel }: PlanF
       <div className="grid gap-2">
         <label className="text-sm font-medium text-muted-foreground">Зөвшөөрөгдсөн домэйнууд</label>
         <input type="hidden" {...register("allowedDomains")} />
-        <div className="relative" ref={dropdownRef}>
-          {/* Selected chips */}
+        <div className="space-y-2">
           {selectedDomains.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-1.5">
+            <div className="flex flex-wrap gap-1">
               {selectedDomains.map((name) => (
                 <span
                   key={name}
@@ -276,59 +273,26 @@ export function PlanForm({ planId, defaultModuleId, onSuccess, onCancel }: PlanF
               </button>
             </div>
           )}
-
-          {/* Trigger */}
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
-            className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring text-muted-foreground"
-          >
-            <span>
-              {selectedDomains.length === 0
-                ? "Домэйн сонгоно уу..."
-                : `${selectedDomains.length} домэйн сонгогдсон`}
-            </span>
-            <ChevronDown size={15} className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-          </button>
-
-          {/* Dropdown list */}
-          {dropdownOpen && (
-            <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-popover shadow-md max-h-48 overflow-y-auto">
-              {domainsData?.data.filter((d) => d.isEnabled).length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">Домэйн байхгүй байна.</div>
-              )}
-              {domainsData?.data
-                .filter((d) => d.isEnabled)
-                .map((domain) => {
-                  const checked = selectedDomains.includes(domain.name)
-                  return (
-                    <button
-                      key={domain.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDomains((prev) =>
-                          checked ? prev.filter((d) => d !== domain.name) : [...prev, domain.name]
-                        )
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
-                    >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                          checked ? "bg-primary border-primary text-primary-foreground" : "border-input"
-                        }`}
-                      >
-                        {checked && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                            <path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </span>
-                      {domain.name}
-                    </button>
-                  )
-                })}
-            </div>
-          )}
+          <div className="flex gap-2">
+            <Input
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              placeholder="example.mn"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  addAllowedDomain()
+                }
+              }}
+            />
+            <Button type="button" variant="outline" onClick={addAllowedDomain} className="shrink-0 gap-1">
+              <Plus size={14} />
+              Нэмэх
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Тарифыг аль домэйнд ашиглахыг гараар оруулна (жишээ: shop.mn).
+          </p>
         </div>
       </div>
 

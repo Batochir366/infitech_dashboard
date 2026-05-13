@@ -1,5 +1,11 @@
 export type ClientStatus = 'active' | 'inactive';
-export type ProductType = 'ecom' | 'deliverySystem';
+export type PaymentType = 'rent' | 'buy';
+
+export interface PaymentSchedule {
+  id?: number;
+  day: number;
+  amount: number;
+}
 
 export interface Client {
   id: string;
@@ -8,13 +14,14 @@ export interface Client {
   phoneNumber: string;
   phoneNumber2?: string;
   email?: string;
-  invoice: number;
-  paymentDate: string;
+  paymentType: PaymentType;
+  paymentSchedules: PaymentSchedule[];
   status: ClientStatus;
-  domainId: number | null;
-  domain?: { id: number; name: string } | null;
+  domain?: string | null;
+  systemId: number | null;
+  system?: { id: number; name: string; photo: string | null } | null;
   notes?: string;
-  productType?: ProductType;
+  productType?: string;
   createdAt: string;
 }
 
@@ -31,10 +38,11 @@ export interface CreateClientInput {
   phoneNumber: string;
   phoneNumber2?: string;
   email?: string;
-  invoice: number;
-  paymentDate: string;
+  paymentType: PaymentType;
+  paymentSchedules: PaymentSchedule[];
   status: ClientStatus;
-  domainId?: number | null;
+  domain?: string | null;
+  systemId?: number | null;
   notes?: string;
-  productType?: ProductType;
+  productType?: string;
 }

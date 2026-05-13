@@ -2,25 +2,25 @@
 
 @theme {
   --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-foreground: hsl(215 25% 27%);
 
   --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-card-foreground: hsl(215 25% 27%);
 
   --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(222.2 84% 4.9%);
+  --color-popover-foreground: hsl(215 25% 27%);
 
   --color-primary: #2563eb;
   --color-primary-foreground: hsl(210 40% 98%);
 
   --color-secondary: hsl(210 40% 96.1%);
-  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-secondary-foreground: hsl(215 20% 35%);
 
   --color-muted: hsl(210 40% 96.1%);
   --color-muted-foreground: hsl(215.4 16.3% 46.9%);
 
   --color-accent: hsl(210 40% 96.1%);
-  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-accent-foreground: hsl(215 20% 35%);
 
   --color-destructive: hsl(0 84.2% 60.2%);
   --color-destructive-foreground: hsl(210 40% 98%);
@@ -37,25 +37,25 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 215 25% 27%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 27%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 27%;
 
     --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 215 20% 35%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 215 20% 35%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -110,4 +110,18 @@
 body {
   font-family: "Commissioner", sans-serif;
   letter-spacing: -1;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+.scrollbar-thumb-muted-foreground {
+  scrollbar-color: var(--color-muted-foreground) var(--color-muted);
+}
+.scrollbar-track-muted {
+  scrollbar-track-color: var(--color-muted);
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
 }

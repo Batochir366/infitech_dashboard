@@ -1,13 +1,13 @@
-import { useForm, Controller } from "react-hook-form"
+import { useForm, Controller, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { useClient, useCreateClient, useUpdateClient } from "../../hooks/useClients"
-import { useDomains } from "../../hooks/useDomains"
+import { useSystems } from "../../hooks/useSystems"
 import { Button } from "../ui/Button"
 import { Input } from "../ui/Input"
 import { NumberInput } from "../ui/NumberInput"
-import { useEffect, useState } from "react"
-import { User, Building2, Loader2 } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
+import { User, Building2, Loader2, ChevronDown, X, ImageIcon, Plus, Trash2 } from "lucide-react"
 
 const EBARIMT_MERCHANT_INFO_URL = "https://info.ebarimt.mn/rest/merchant/info"
 
@@ -28,10 +28,10 @@ const fetchMerchantByRegNo = async (regno: string): Promise<EbarimtMerchantInfo 
   }
 }
 
-const PRODUCT_TYPE_OPTIONS = [
-  { value: "ecom", label: "Ecommerce system" },
-  { value: "deliverySystem", label: "Delivery system" },
-] as const
+const paymentScheduleSchema = z.object({
+  day: z.number().min(1, "1-31").max(31, "1-31"),
+  amount: z.number().min(0, "0-с их"),
+})
 
 const clientSchema = z.object({
   clientType: z.enum(["person", "company"]),
@@ -40,12 +40,13 @@ const clientSchema = z.object({
   phoneNumber: z.string().min(1, "Утасны дугаар оруулна уу"),
   phoneNumber2: z.string().optional(),
   email: z.string().email("Зөв имэйл хаяг оруулна уу").optional().or(z.literal("")),
-  domainId: z.string().optional(),
-  invoice: z.number({ message: "Тоо оруулна уу" }).min(0, "Төлбөр 0-ээс бага байж болохгүй"),
-  paymentDate: z.string().min(1, "Төлөх огноог сонгоно уу"),
+  domain: z.string().optional(),
+  paymentType: z.enum(["rent", "buy"]),
+  paymentSchedules: z.array(paymentScheduleSchema).min(1, "Төлбөрийн хуваарь оруулна уу"),
   status: z.enum(["active", "inactive"]),
   notes: z.string().optional(),
-  productType: z.enum(["ecom", "deliverySystem"]).optional(),
+  productType: z.string().optional(),
+  systemId: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.clientType === "company" && data.regNumber?.replace(/\D/g, "").length !== 7) {
     ctx.addIssue({
@@ -58,6 +59,102 @@ const clientSchema = z.object({
 
 type ClientFormValues = z.infer<typeof clientSchema>
 
+interface SystemOption {
+  id: number
+  name: string
+  photo: string | null
+}
+
+function SystemSelect({
+  systems,
+  value,
+  onChange,
+  selected,
+}: {
+  systems: SystemOption[]
+  value?: string
+  onChange: (val: string) => void
+  selected?: SystemOption
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        {selected ? (
+          <span className="flex items-center gap-2">
+            {selected.photo ? (
+              <img src={selected.photo} alt={selected.name} className="h-5 w-5 rounded object-cover" />
+            ) : (
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-muted">
+                <ImageIcon size={12} className="text-muted-foreground" />
+              </span>
+            )}
+            <span>{selected.name}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">— Сонгоно уу —</span>
+        )}
+        <span className="flex items-center gap-1">
+          {value && (
+            <span
+              role="button"
+              className="rounded-sm p-0.5 hover:bg-accent"
+              onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false) }}
+            >
+              <X size={14} className="text-muted-foreground" />
+            </span>
+          )}
+          <ChevronDown size={14} className="text-muted-foreground" />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md animate-in fade-in slide-in-from-top-1 duration-150">
+          {systems.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">Систем олдсонгүй</div>
+          ) : (
+            <div className="max-h-52 overflow-y-auto py-1">
+              {systems.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { onChange(String(s.id)); setOpen(false) }}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent ${
+                    String(s.id) === value ? "bg-accent font-medium" : ""
+                  }`}
+                >
+                  {s.photo ? (
+                    <img src={s.photo} alt={s.name} className="h-7 w-7 rounded-md object-cover border" />
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md border bg-muted">
+                      <ImageIcon size={14} className="text-muted-foreground" />
+                    </span>
+                  )}
+                  <span>{s.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface ClientFormProps {
   clientId?: string
   onSuccess: () => void
@@ -67,7 +164,7 @@ interface ClientFormProps {
 export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
   const isEdit = !!clientId
   const { data: client, isLoading: isFetching } = useClient(clientId || "")
-  const { data: domainsData } = useDomains({ limit: 100 })
+  const { data: systemsData } = useSystems({ limit: 100 })
   const createClient = useCreateClient()
   const updateClient = useUpdateClient()
   const [isCheckingRegNo, setIsCheckingRegNo] = useState(false)
@@ -87,20 +184,27 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
     defaultValues: {
       clientType: "person",
       status: "active",
-      invoice: 0,
+      paymentType: "rent",
+      paymentSchedules: [{ day: 1, amount: 0 }],
       name: "",
       regNumber: "",
       phoneNumber: "",
       phoneNumber2: "",
       email: "",
-      domainId: "",
-      paymentDate: "",
+      domain: "",
       notes: "",
       productType: undefined,
+      systemId: "",
     },
   })
 
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "paymentSchedules",
+  })
+
   const clientType = watch("clientType")
+  const paymentType = watch("paymentType")
 
   useEffect(() => {
     if (client) {
@@ -111,12 +215,15 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         phoneNumber: client.phoneNumber,
         phoneNumber2: client.phoneNumber2 || "",
         email: client.email || "",
-        domainId: client.domainId ? String(client.domainId) : "",
-        invoice: client.invoice,
-        paymentDate: client.paymentDate,
+        domain: client.domain || "",
+        paymentType: client.paymentType,
+        paymentSchedules: client.paymentSchedules.length > 0
+          ? client.paymentSchedules.map((ps) => ({ day: ps.day, amount: ps.amount }))
+          : [{ day: 1, amount: 0 }],
         status: client.status,
         notes: client.notes || "",
-        productType: (client.productType as "ecom" | "deliverySystem") || undefined,
+        productType: client.productType || undefined,
+        systemId: client.systemId ? String(client.systemId) : "",
       })
     }
   }, [client, reset])
@@ -145,10 +252,11 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
 
   const onSubmit = async (data: ClientFormValues) => {
     try {
-      const { clientType: _type, domainId: domainIdStr, ...rest } = data
+      const { clientType: _type, systemId: systemIdStr, ...rest } = data
       const payload = {
         ...rest,
-        domainId: domainIdStr ? parseInt(domainIdStr, 10) : null,
+        domain: rest.domain || null,
+        systemId: systemIdStr ? parseInt(systemIdStr, 10) : null,
       }
       if (isEdit) {
         await updateClient.mutateAsync({ id: clientId!, data: payload })
@@ -160,7 +268,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
       console.error("Failed to save client:", error)
     }
   }
-
 
   const switchToType = (type: "person" | "company") => {
     setValue("clientType", type)
@@ -177,7 +284,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-      {/* Tab switcher — only shown on create */}
       {!isEdit && (
         <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
           <button
@@ -205,7 +311,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         </div>
       )}
 
-      {/* Company tab: regNumber first, then auto-filled name */}
       {clientType === "company" && (
         <div className="grid gap-2">
           <label htmlFor="regNumber" className="text-sm font-medium text-muted-foreground">
@@ -240,7 +345,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         </div>
       )}
 
-      {/* Name field — editable for person, readOnly (auto-filled) for company */}
       <div className="grid gap-2">
         <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
           {clientType === "company" ? "Байгууллагын нэр" : "Нэр *"}
@@ -255,7 +359,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
       </div>
 
-      {/* Email — only for person */}
       {clientType === "person" && (
         <div className="grid gap-2">
           <label htmlFor="email" className="text-sm font-medium text-muted-foreground">Имэйл (Сонголтоор)</label>
@@ -264,7 +367,6 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         </div>
       )}
 
-      {/* Phone numbers */}
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
           <label htmlFor="phoneNumber" className="text-sm font-medium text-muted-foreground">Утасны дугаар *</label>
@@ -278,60 +380,124 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
       </div>
 
       <div className="grid gap-2">
-        <label htmlFor="domainId" className="text-sm font-medium text-muted-foreground">Домэйн</label>
-        <select
-          id="domainId"
-          {...register("domainId")}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <option value="">— Сонгоно уу —</option>
-          {domainsData?.data
-            .filter((d) => d.isEnabled)
-            .map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-        </select>
-        {errors.domainId && <p className="text-xs text-destructive">{errors.domainId.message}</p>}
+        <label htmlFor="domain" className="text-sm font-medium text-muted-foreground">Домэйн (Сонголтоор)</label>
+        <Input id="domain" {...register("domain")} placeholder="example.mn" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <label htmlFor="invoice" className="text-sm font-medium text-muted-foreground">Төлбөр *</label>
-          <Controller
-            name="invoice"
-            control={control}
-            render={({ field }) => (
-              <NumberInput
-                id="invoice"
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                currency
-                placeholder="0"
-              />
-            )}
-          />
-          {errors.invoice && <p className="text-xs text-destructive">{errors.invoice.message}</p>}
+      {/* Payment Type */}
+      <div className="grid gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Төлбөрийн төрөл *</label>
+        <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setValue("paymentType", "rent")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${paymentType === "rent"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+          >
+            Түрээс
+          </button>
+          <button
+            type="button"
+            onClick={() => setValue("paymentType", "buy")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${paymentType === "buy"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+          >
+            Худалдан авалт
+          </button>
         </div>
-        <div className="grid gap-2">
-          <label htmlFor="paymentDate" className="text-sm font-medium text-muted-foreground">Төлөх огноо *</label>
-          <Input id="paymentDate" type="input" inputMode="numeric" {...register("paymentDate")} />
-          {errors.paymentDate && <p className="text-xs text-destructive">{errors.paymentDate.message}</p>}
+      </div>
+
+      {/* Payment Schedules */}
+      <div className="grid gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Төлбөрийн хуваарь *</label>
+        <div className="space-y-2">
+          {fields.map((field, index) => (
+            <div key={field.id} className="flex items-center gap-2">
+              <div className="w-20">
+                <Controller
+                  name={`paymentSchedules.${index}.day`}
+                  control={control}
+                  render={({ field: dayField }) => (
+                    <Input
+                      inputMode="numeric"
+                      maxLength={2}
+                      placeholder="Өдөр"
+                      value={dayField.value || ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, "")
+                        const num = parseInt(raw) || 0
+                        if (num > 31) return
+                        dayField.onChange(num)
+                      }}
+                      onBlur={() => {
+                        if (dayField.value < 1) dayField.onChange(1)
+                        if (dayField.value > 31) dayField.onChange(31)
+                      }}
+                      className="text-center"
+                    />
+                  )}
+                />
+              </div>
+              <span className="text-muted-foreground text-sm">—</span>
+              <div className="flex-1">
+                <Controller
+                  name={`paymentSchedules.${index}.amount`}
+                  control={control}
+                  render={({ field: amountField }) => (
+                    <NumberInput
+                      value={amountField.value}
+                      onChange={amountField.onChange}
+                      onBlur={amountField.onBlur}
+                      currency
+                      placeholder="0"
+                    />
+                  )}
+                />
+              </div>
+              {fields.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-destructive hover:text-destructive"
+                  onClick={() => remove(index)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              )}
+            </div>
+          ))}
+          {errors.paymentSchedules && !Array.isArray(errors.paymentSchedules) && (
+            <p className="text-xs text-destructive">{errors.paymentSchedules.message}</p>
+          )}
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-fit gap-1.5 mt-1"
+          onClick={() => append({ day: 1, amount: 0 })}
+        >
+          <Plus size={14} />
+          <span>Хуваарь нэмэх</span>
+        </Button>
       </div>
 
       <div className="grid gap-2">
-        <label htmlFor="productType" className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
-        <select
-          id="productType"
-          {...register("productType")}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <option value="">— Сонгоно уу —</option>
-          {PRODUCT_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <label className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
+        <Controller
+          name="systemId"
+          control={control}
+          render={({ field }) => {
+            const systems = systemsData?.data.filter((s) => s.isEnabled) ?? []
+            const selected = systems.find((s) => String(s.id) === field.value)
+            return <SystemSelect systems={systems} value={field.value} onChange={field.onChange} selected={selected} />
+          }}
+        />
       </div>
 
       <div className="grid gap-2">

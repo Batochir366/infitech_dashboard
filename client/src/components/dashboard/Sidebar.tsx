@@ -5,7 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Server,
-  Globe,
+  Monitor,
 } from "lucide-react"
 import { cn } from "../../utils/cn"
 import { Button } from "../ui/Button"
@@ -18,8 +18,8 @@ interface SidebarProps {
 
 const navItems = [
   { icon: Users, label: "Харилцагчид", href: "/clients" },
+  { icon: Monitor, label: "Системүүд", href: "/systems" },
   { icon: Server, label: "Модулиуд", href: "/modules" },
-  { icon: Globe, label: "Домэйнууд", href: "/domains" },
 ]
 
 export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
@@ -84,7 +84,7 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
             )}
           >
             <LogOut size={20} className={cn(!collapsed && "mr-3")} />
-            {!collapsed && <span>Logout</span>}
+            {!collapsed && <span>Системээс гарах</span>}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import dayjs from "dayjs"
-import { Plus, Search, Edit, Trash2, Eye, } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, ImageIcon } from "lucide-react"
 import { useClients, useDeleteClient, useUpdateClient } from "../../hooks/useClients"
 import { useToast } from "../../context/ToastContext"
 import { Button } from "../../components/ui/Button"
@@ -27,20 +27,21 @@ export default function ClientListPage() {
   const toast = useToast()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editClientId, setEditClientId] = useState<string | null>(null)
   const navigate = useNavigate()
   const filteredClients = clients?.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(search.toLowerCase()) ||
-      (client.domain?.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      client.invoice.toString().includes(search) ||
+      (client.domain ?? "").toLowerCase().includes(search.toLowerCase()) ||
       (client.regNumber ?? "").toLowerCase().includes(search.toLowerCase()) ||
       client.phoneNumber.includes(search)
 
     const matchesStatus = statusFilter === "all" || client.status === statusFilter
+    const matchesPayment = paymentFilter === "all" || client.paymentType === paymentFilter
 
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && matchesPayment
   })
 
   const handleDelete = async (id: string) => {
@@ -108,13 +109,22 @@ export default function ClientListPage() {
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Нэр эсвэл төлбөрөөр хайх..."
+              placeholder="Нэр эсвэл дугаараар хайх..."
               className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
+            <select
+              className="bg-transparent border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+            >
+              <option value="all">Бүх төрөл</option>
+              <option value="rent">Түрээс</option>
+              <option value="buy">Худалдан авалт</option>
+            </select>
             <select
               className="bg-transparent border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               value={statusFilter}
@@ -138,8 +148,8 @@ export default function ClientListPage() {
                 <TableHead>Утас</TableHead>
                 <TableHead>Домэйн</TableHead>
                 <TableHead>Бүтээгдэхүүн</TableHead>
-                <TableHead>Төлбөр</TableHead>
-                <TableHead>Төлөх огноо</TableHead>
+                <TableHead>Төрөл</TableHead>
+                <TableHead>Төлбөрийн хуваарь</TableHead>
                 <TableHead>Төлөв</TableHead>
                 <TableHead>Бүртгэсэн</TableHead>
                 <TableHead className="text-right">Үйлдэл</TableHead>
@@ -157,24 +167,49 @@ export default function ClientListPage() {
                   <TableRow
                     key={client.id}
                     className="hover:bg-muted cursor-pointer"
-
                   >
                     <TableCell className="font-medium">{client.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.regNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.regNumber || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       <div>{client.phoneNumber}</div>
                       {client.phoneNumber2 && <div className="text-xs text-muted-foreground">{client.phoneNumber2}</div>}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{client.domain?.name ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {client.productType === "ecom"
-                        ? "Ecommerce"
-                        : client.productType === "deliverySystem"
-                          ? "Delivery system"
-                          : "—"}
+                    <TableCell className="text-muted-foreground">{client.domain || "—"}</TableCell>
+                    <TableCell>
+                      {client.system ? (
+                        <div className="flex items-center gap-2">
+                          {client.system.photo ? (
+                            <img src={client.system.photo} alt={client.system.name} className="h-6 w-6 rounded object-cover border" />
+                          ) : (
+                            <span className="flex h-6 w-6 items-center justify-center rounded border bg-muted">
+                              <ImageIcon size={12} className="text-muted-foreground" />
+                            </span>
+                          )}
+                          <span className="text-sm">{client.system.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
-                    <TableCell>{client.invoice.toLocaleString()} ₮</TableCell>
-                    <TableCell>{(client.paymentDate)}</TableCell>
+                    <TableCell>
+                      <Badge variant={client.paymentType === "rent" ? "secondary" : "outline"}>
+                        {client.paymentType === "rent" ? "Түрээс" : "Худалдан авалт"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {client.paymentSchedules.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {client.paymentSchedules.map((ps, i) => (
+                            <div key={i} className="whitespace-nowrap">
+                              <span className="text-muted-foreground">{ps.day}-нд</span>{" "}
+                              <span className="font-medium">{ps.amount.toLocaleString()}₮</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch

@@ -16,36 +16,71 @@ model User {
   @@map("users")
 }
 
-model Domain {
+model Client {
+  id               Int               @id @default(autoincrement())
+  name             String
+  regNumber        String?
+  phoneNumber      String
+  phoneNumber2     String?
+  email            String?
+  paymentType      PaymentType       @default(rent)
+  status           ClientStatus      @default(active)
+  domain           String?
+  notes            String?
+  productType      String?
+  systemId         Int?
+  system           System?           @relation(fields: [systemId], references: [id])
+  isConnected      Boolean           @default(false)
+  paymentSchedules PaymentSchedule[]
+  invoices         Invoice[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("clients")
+}
+
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  invoiceNumber String        @unique
+  publicToken   String        @unique
+  clientId      Int
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount        Float
+  description   String?
+  status        InvoiceStatus @default(pending)
+  issuedAt      DateTime      @default(now())
+  dueDate       DateTime
+  paidAt        DateTime?
+  scheduleDay   Int
+  scheduleMonth Int
+  scheduleYear  Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([clientId, scheduleYear, scheduleMonth, scheduleDay])
+  @@map("invoices")
+}
+
+model PaymentSchedule {
+  id       Int    @id @default(autoincrement())
+  clientId Int
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  day      Int
+  amount   Float
+
+  @@map("payment_schedules")
+}
+
+model System {
   id        Int      @id @default(autoincrement())
   name      String   @unique
+  photo     String?
   isEnabled Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   clients   Client[]
 
-  @@map("domains")
-}
-
-model Client {
-  id           Int          @id @default(autoincrement())
-  name         String
-  regNumber    String?
-  phoneNumber  String
-  phoneNumber2 String?
-  email        String?
-  invoice      Float
-  paymentDate  String
-  status       ClientStatus @default(active)
-  domainId     Int?
-  domain       Domain?      @relation(fields: [domainId], references: [id])
-  notes        String?
-  productType  String?
-  isConnected  Boolean      @default(false)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  @@map("clients")
+  @@map("systems")
 }
 
 model Module {
@@ -89,4 +124,16 @@ model PlanItem {
 enum ClientStatus {
   active
   inactive
+}
+
+enum PaymentType {
+  rent
+  buy
+}
+
+enum InvoiceStatus {
+  pending
+  paid
+  overdue
+  cancelled
 }

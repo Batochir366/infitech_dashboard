@@ -4,7 +4,8 @@ import authRoutes from "../routes/auth.routes";
 import clientRoutes from "../routes/client.routes";
 import moduleRoutes from "../routes/module.routes";
 import planRoutes from "../routes/plan.routes";
-import domainRoutes from "../routes/domain.routes";
+import systemRoutes from "../routes/system.routes";
+import invoiceRoutes from "../routes/invoice.routes";
 
 const app: Application = express();
 
@@ -22,7 +23,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/modules", moduleRoutes);
 app.use("/api/plans", planRoutes);
-app.use("/api/domains", domainRoutes);
+app.use("/api/systems", systemRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

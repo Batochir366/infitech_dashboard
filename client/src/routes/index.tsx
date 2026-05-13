@@ -9,9 +9,14 @@ import ClientFormPage from "../pages/clients/ClientFormPage"
 import ClientDetailPage from "../pages/clients/ClientDetailPage"
 import ModuleListPage from "../pages/modules/ModuleListPage"
 import ModuleDetailPage from "../pages/modules/ModuleDetailPage"
-import DomainListPage from "../pages/domains/DomainListPage"
+import SystemListPage from "../pages/systems/SystemListPage"
+import PublicInvoicePage from "../pages/invoices/PublicInvoicePage"
 
 const router = createBrowserRouter([
+  {
+    path: "/invoice/:token",
+    element: <PublicInvoicePage />,
+  },
   {
     path: "/",
     element: <AuthGuard />,
@@ -38,11 +43,11 @@ const router = createBrowserRouter([
         ],
       },
       {
-        path: "domains",
+        path: "systems",
         children: [
           {
             index: true,
-            element: <DomainListPage />,
+            element: <SystemListPage />,
           },
         ],
       },
