@@ -89,17 +89,28 @@ jobs:
 
       - name: Upload backend
         run: |
-          rsync -avz --delete backend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/backend/
+          rsync -avz --delete \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            backend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/backend/
 
       - name: Upload frontend
         run: |
-          rsync -avz --delete frontend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/frontend/
+          rsync -avz --delete \
+            frontend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/frontend/
+
+      - name: Create .env
+        run: |
+          ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} \
+            "echo 'NODE_ENV=production' > /var/www/apps/infitech_dashboard/backend/.env && \
+             echo 'PORT=${{ secrets.PORT }}' >> /var/www/apps/infitech_dashboard/backend/.env && \
+             echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> /var/www/apps/infitech_dashboard/backend/.env && \
+             echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> /var/www/apps/infitech_dashboard/backend/.env"
 
       - name: Restart app
         run: |
-          ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} 'bash -s' << 'ENDSSH'
-            cd /var/www/apps/infitech_dashboard/backend
-            npm install --omit=dev
-            pm2 restart infitech_dashboard || pm2 start dist/index.js --name infitech_dashboard
-            pm2 save
-          ENDSSH
+          ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} \
+            "cd /var/www/apps/infitech_dashboard/backend && \
+             npm install --omit=dev && \
+             pm2 restart infitech_dashboard || pm2 start dist/index.js --name infitech_dashboard && \
+             pm2 save"
