@@ -36,6 +36,7 @@ jobs:
             server/package-lock.json
             server/prisma
             server/src/generated
+            server/prisma.config.ts
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -100,10 +101,6 @@ jobs:
             frontend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/frontend/
 
       - name: Deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          PORT: ${{ secrets.PORT }}
         run: |
           ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} \
             "cd /var/www/apps/infitech_dashboard/backend && \
