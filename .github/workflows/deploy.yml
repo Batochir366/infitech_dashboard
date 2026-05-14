@@ -34,7 +34,8 @@ jobs:
             server/dist
             server/package.json
             server/package-lock.json
-            server/generated
+            server/prisma
+            server/src/generated
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -90,7 +91,6 @@ jobs:
       - name: Upload backend
         run: |
           rsync -avz --delete \
-            --exclude='.env' \
             --exclude='node_modules' \
             backend-build/ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/backend/
 
@@ -107,7 +107,7 @@ jobs:
              echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> /var/www/apps/infitech_dashboard/backend/.env && \
              echo 'JWT_SECRET=${{ secrets.JWT_SECRET }}' >> /var/www/apps/infitech_dashboard/backend/.env"
 
-      - name: Restart app
+      - name: Migrate and Restart
         run: |
           ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} \
             "cd /var/www/apps/infitech_dashboard/backend && \
