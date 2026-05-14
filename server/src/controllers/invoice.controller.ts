@@ -7,10 +7,11 @@ import type { AuthRequest } from "../middleware/auth.middleware";
 
 export function getCompanyFromEnv() {
   return {
-    name: process.env.COMPANY_NAME || "INFITECH LLC",
-    address: process.env.COMPANY_ADDRESS || "",
-    phone: process.env.COMPANY_PHONE || "",
-    bank: process.env.COMPANY_BANK || "",
+    name: "INFITECH LLC",
+    address:
+      "Улаанбаатар, Сүхбаатар дүүрэг, 9-р хороо, Хоймор оффис 4-р давхарт 408 тоот",
+    phone: "60605440",
+    bank: "Худалдаа хөгжлийн банк MN880004000 453256871",
   };
 }
 
@@ -45,7 +46,7 @@ function addDays(date: Date, days: number): Date {
 
 export const generateInvoice = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { clientId, day, month, year } = req.body as {
     clientId?: number;
@@ -64,7 +65,9 @@ export const generateInvoice = async (
     typeof month !== "number" ||
     typeof year !== "number"
   ) {
-    res.status(400).json({ message: "clientId, day, month, year are required" });
+    res
+      .status(400)
+      .json({ message: "clientId, day, month, year are required" });
     return;
   }
 
@@ -169,7 +172,7 @@ export const generateInvoice = async (
 
 export const getInvoicesByClient = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const clientIdRaw = req.query.clientId as string | undefined;
   if (!clientIdRaw) {
@@ -200,7 +203,7 @@ export const getInvoicesByClient = async (
 
 export const getPublicInvoice = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const tokenParam = req.params.token;
   const token = typeof tokenParam === "string" ? tokenParam : tokenParam?.[0];
@@ -233,12 +236,12 @@ export const getPublicInvoice = async (
 
 export const updateInvoice = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const idParam = req.params.id;
   const id = parseInt(
-    typeof idParam === "string" ? idParam : idParam?.[0] ?? "",
-    10
+    typeof idParam === "string" ? idParam : (idParam?.[0] ?? ""),
+    10,
   );
   const body = req.body as {
     status?: InvoiceStatus;
@@ -286,7 +289,11 @@ export const updateInvoice = async (
   }
 
   if (hasAmount) {
-    if (typeof body.amount !== "number" || body.amount < 0 || Number.isNaN(body.amount)) {
+    if (
+      typeof body.amount !== "number" ||
+      body.amount < 0 ||
+      Number.isNaN(body.amount)
+    ) {
       res.status(400).json({ message: "Invalid amount" });
       return;
     }
