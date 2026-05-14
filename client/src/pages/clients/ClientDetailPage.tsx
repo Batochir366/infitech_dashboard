@@ -877,7 +877,7 @@ export default function ClientDetailPage() {
             {paydayExistingInvoice && listCompany ? (
               <>
                 {invoiceHistoryOnly ? (
-                  <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-100">
+                  <p className="text-xs rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900">
                     Идэвхгүй харилцагч: нэхэмжлэхийг түүхээр харна. Төлөв өөрчлөх, засах боломжгүй.
                   </p>
                 ) : null}
