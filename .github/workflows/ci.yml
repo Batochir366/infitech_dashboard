@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-backend:
     runs-on: ubuntu-latest
@@ -13,13 +16,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
 
       - name: Install & Build
         working-directory: backend
         run: |
-          npm ci
+          npm install
           npx tsc --noEmit
           npm run build
 
@@ -39,13 +40,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install & Build
         working-directory: frontend
         run: |
-          npm ci
+          npm install
           npm run build
         env:
           VITE_API_URL: /api
@@ -61,8 +60,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: backend-build
           path: backend-build/
@@ -79,12 +77,14 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.DO_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload files to server
+      - name: Upload backend to server
         run: |
           rsync -avz --delete \
             backend-build/ \
             ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/backend/
 
+      - name: Upload frontend to server
+        run: |
           rsync -avz --delete \
             frontend-build/ \
             ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/frontend/
@@ -104,6 +104,6 @@ jobs:
             ENVEOF
 
             npm install --omit=dev
-            pm2 restart backend || pm2 start dist/index.js --name "backend"
+            pm2 restart infitech_dashboard || pm2 start dist/index.js --name "infitech_dashboard"
             pm2 save
           EOF
