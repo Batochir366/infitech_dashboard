@@ -453,6 +453,34 @@ export default function ClientDetailPage() {
     setEditDue(toDateInputValue(editingInvoice.dueDate))
   }, [editingInvoice])
 
+  const joinedBounds = useMemo(() => {
+    if (!client) {
+      return { y: 1970, m: 0, d: 1 }
+    }
+    const j = new Date(client.createdAt)
+    return {
+      y: j.getFullYear(),
+      m: j.getMonth(),
+      d: j.getDate(),
+    }
+  }, [client?.createdAt])
+
+  useEffect(() => {
+    if (!client) return
+    const j = new Date(client.createdAt)
+    const jy = j.getFullYear()
+    const jm = j.getMonth()
+    const now = new Date()
+    let ty = now.getFullYear()
+    let tm = now.getMonth()
+    if (ty < jy || (ty === jy && tm < jm)) {
+      ty = jy
+      tm = jm
+    }
+    setCalYear(ty)
+    setCalMonth(tm)
+  }, [client?.id])
+
   if (isLoading) {
     return <div className="py-20 text-center text-muted-foreground">Уншиж байна...</div>
   }
@@ -489,33 +517,9 @@ export default function ClientDetailPage() {
   const clientActive = client.status === "active"
   const invoiceHistoryOnly = !clientActive
 
-  const joinedBounds = useMemo(() => {
-    const j = new Date(client.createdAt)
-    return {
-      y: j.getFullYear(),
-      m: j.getMonth(),
-      d: j.getDate(),
-    }
-  }, [client.createdAt])
-
   const canGoPrevCal =
     calYear > joinedBounds.y ||
     (calYear === joinedBounds.y && calMonth > joinedBounds.m)
-
-  useEffect(() => {
-    const j = new Date(client.createdAt)
-    const jy = j.getFullYear()
-    const jm = j.getMonth()
-    const now = new Date()
-    let ty = now.getFullYear()
-    let tm = now.getMonth()
-    if (ty < jy || (ty === jy && tm < jm)) {
-      ty = jy
-      tm = jm
-    }
-    setCalYear(ty)
-    setCalMonth(tm)
-  }, [client.id])
 
   const calPrev = () => {
     if (!canGoPrevCal) return
