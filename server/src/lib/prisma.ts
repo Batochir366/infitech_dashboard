@@ -3,7 +3,7 @@ import { PrismaClient } from "../generated/prisma/client";
 
 function createPrismaClient() {
   const url = new URL(process.env.DATABASE_URL!);
-
+  console.log(url);
   const adapter = new PrismaMariaDb({
     host: url.hostname,
     port: parseInt(url.port || "3306"),
