@@ -112,6 +112,6 @@ jobs:
           ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} \
             "cd /var/www/apps/infitech_dashboard/backend && \
              npm install --omit=dev && \
-             npx prisma migrate deploy && \
-             pm2 restart infitech_dashboard || pm2 start dist/index.js --name infitech_dashboard && \
+             DATABASE_URL='${{ secrets.DATABASE_URL }}' npx prisma migrate deploy && \
+             pm2 restart infitech_dashboard -f || pm2 start dist/index.js --name infitech_dashboard && \
              pm2 save"
