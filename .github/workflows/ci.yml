@@ -1,36 +1,109 @@
-name: CI
+name: Build & Deploy
 
 on:
   push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master, develop]
+    branches: [main]
 
 jobs:
-  build:
+  build-backend:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: |
-            client/package-lock.json
-            server/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Install & build server
-        working-directory: server
+      - name: Install & Build
+        working-directory: backend
         run: |
           npm ci
-          npm run prisma:generate
+          npx tsc --noEmit
           npm run build
 
-      - name: Install & build client
-        working-directory: client
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: |
+            backend/dist/
+            backend/package.json
+            backend/package-lock.json
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & Build
+        working-directory: frontend
         run: |
           npm ci
           npm run build
+        env:
+          VITE_API_URL: /api
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: backend-build/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-build/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DO_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload files to server
+        run: |
+          rsync -avz --delete \
+            backend-build/ \
+            ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/backend/
+
+          rsync -avz --delete \
+            frontend-build/ \
+            ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/var/www/apps/infitech_dashboard/frontend/
+
+      - name: Restart server
+        run: |
+          ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} << 'EOF'
+            cd /var/www/apps/infitech_dashboard/backend
+
+            cat > .env << ENVEOF
+            NODE_ENV=production
+            PORT=5000
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            ENVEOF
+
+            npm install --omit=dev
+            pm2 restart backend || pm2 start dist/index.js --name "backend"
+            pm2 save
+          EOF
