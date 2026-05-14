@@ -20,17 +20,11 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install
+      - name: Install and Build
         working-directory: server
-        run: npm install
-
-      - name: Generate Prisma Client
-        working-directory: server
-        run: npx prisma generate
-
-      - name: Build
-        working-directory: server
-        run: npm run build
+        run: |
+          npm install
+          npm run build
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -58,6 +52,8 @@ jobs:
         run: |
           npm install
           npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -103,7 +99,7 @@ jobs:
         run: |
           ssh ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} 'bash -s' << 'ENDSSH'
             cd /var/www/apps/infitech_dashboard/backend
-            npm install
+            npm install --omit=dev
             pm2 restart infitech_dashboard || pm2 start dist/index.js --name infitech_dashboard
             pm2 save
           ENDSSH
