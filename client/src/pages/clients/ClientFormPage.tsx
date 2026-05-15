@@ -9,7 +9,7 @@ export default function ClientFormPage() {
   const isEdit = !!id
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
           {isEdit ? "Харилцагч засах" : "Харилцагч нэмэх"}

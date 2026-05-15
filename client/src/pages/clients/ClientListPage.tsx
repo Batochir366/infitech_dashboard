@@ -116,12 +116,12 @@ export default function ClientListPage() {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        className="max-w-5xl max-h-[90vh] overflow-y-auto"
         title={
           addPaymentType === "rent"
             ? "Шинэ түрээсийн харилцагч"
             : "Шинэ худалдан авалтын харилцагч"
         }
-        description="Ерөнхий мэдээлэл болон төлбөрийн мэдээллийг бөглөнө үү."
       >
         <ClientForm
           defaultPaymentType={addPaymentType}
@@ -133,6 +133,7 @@ export default function ClientListPage() {
       <Modal
         isOpen={!!editClientId}
         onClose={() => setEditClientId(null)}
+        className="max-w-5xl max-h-[90vh] overflow-y-auto"
         title="Харилцагч засах"
         description="Харилцагчийн мэдээллийг шинэчлэнэ үү."
       >

@@ -24,7 +24,7 @@ import {
   AlertCircle,
   Ban,
 } from "lucide-react"
-import { useClient, useDeleteClient, useCancelRental } from "../../hooks/useClients"
+import { useClient, useDeleteClient } from "../../hooks/useClients"
 import { useClientInvoices, useGenerateInvoice, useGenerateInstallmentInvoice, useUpdateInvoice } from "../../hooks/useInvoices"
 import { Button } from "../../components/ui/Button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/Card"
@@ -34,12 +34,17 @@ import { Modal } from "../../components/ui/Modal"
 import { useToast } from "../../context/ToastContext"
 import { downloadInvoicePdf } from "../../utils/invoicePdf"
 import { buildInvoiceViewModel } from "../../utils/invoiceViewModel"
-import { lastLeaseMonth, monthIndex } from "../../utils/lease"
+import {
+  computeClampedCalendarMonth,
+  lastLeaseMonth,
+  monthIndex,
+} from "../../utils/lease"
+import type { PurchaseInstallment } from "../../types/client"
 import { cn } from "../../utils/cn"
 import { InvoiceHtmlPreview } from "../../components/invoice/InvoiceHtmlPreview"
-import type { PurchaseInstallment } from "../../types/client"
 import type { InvoiceRecord, InvoiceStatus } from "../../types/invoice"
 
+const EMPTY_INSTALLMENTS: PurchaseInstallment[] = []
 
 const MONTH_NAMES = [
   "1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар",
@@ -704,7 +709,6 @@ export default function ClientDetailPage() {
   const queryClient = useQueryClient()
   const { data: client, isLoading } = useClient(id || "")
   const deleteClient = useDeleteClient()
-  const cancelRentalMutation = useCancelRental()
   const toast = useToast()
   const { data: invoiceListRes } = useClientInvoices(id)
   const generateInvoice = useGenerateInvoice()
@@ -728,7 +732,9 @@ export default function ClientDetailPage() {
     setEditDue(toDateInputValue(editingInvoice.dueDate))
   }, [editingInvoice])
 
-  const purchaseInstallmentsForBounds = client?.purchaseAgreement?.installments ?? []
+  const purchaseInstallmentsForBounds = useMemo((): PurchaseInstallment[] => {
+    return client?.purchaseAgreement?.installments ?? EMPTY_INSTALLMENTS
+  }, [client?.purchaseAgreement?.installments])
 
   const buyCalBounds = useMemo(() => {
     if (!purchaseInstallmentsForBounds.length) {
@@ -770,51 +776,41 @@ export default function ClientDetailPage() {
     return new Date(client.rentalAgreement?.leaseStartAt ?? client.createdAt)
   }, [client?.id, client?.rentalAgreement?.leaseStartAt, client?.createdAt])
 
-  useEffect(() => {
-    if (!client) return
-    const now = new Date()
-    let ty = now.getFullYear()
-    let tm = now.getMonth()
+  const calendarInitKey = useMemo(() => {
+    if (!client) return ""
     if (client.paymentType === "rent") {
-      const jy = leaseBounds.y
-      const jm = leaseBounds.m
-      if (ty < jy || (ty === jy && tm < jm)) {
-        ty = jy
-        tm = jm
-      }
-      const rd = client.rentalAgreement?.rentDurationMonths ?? 12
-      const last = lastLeaseMonth(leaseStartDateMemo, rd)
-      const endIdx = monthIndex(last.year, last.month1 - 1)
-      const curIdx = monthIndex(ty, tm)
-      if (curIdx > endIdx) {
-        ty = last.year
-        tm = last.month1 - 1
-      }
-    } else if (purchaseInstallmentsForBounds.length > 0) {
-      const { minY, minM, maxY, maxM } = buyCalBounds
-      if (ty < minY || (ty === minY && tm < minM)) {
-        ty = minY
-        tm = minM
-      }
-      if (ty > maxY || (ty === maxY && tm > maxM)) {
-        ty = maxY
-        tm = maxM
-      }
+      return [
+        client.id,
+        "rent",
+        leaseBounds.y,
+        leaseBounds.m,
+        client.rentalAgreement?.rentDurationMonths ?? 12,
+        client.rentalAgreement?.leaseStartAt ?? client.createdAt,
+      ].join("|")
     }
-    setCalYear(ty)
-    setCalMonth(tm)
-  }, [
-    client,
-    client?.id,
-    client?.paymentType,
-    client?.rentalAgreement?.leaseStartAt,
-    client?.rentalAgreement?.rentDurationMonths,
-    purchaseInstallmentsForBounds,
-    buyCalBounds,
-    leaseBounds.y,
-    leaseBounds.m,
-    leaseStartDateMemo,
-  ])
+    return [
+      client.id,
+      "buy",
+      buyCalBounds.minY,
+      buyCalBounds.minM,
+      buyCalBounds.maxY,
+      buyCalBounds.maxM,
+      purchaseInstallmentsForBounds.length,
+    ].join("|")
+  }, [client, leaseBounds, buyCalBounds, purchaseInstallmentsForBounds.length])
+
+  useEffect(() => {
+    if (!client || !calendarInitKey) return
+    const { year, month } = computeClampedCalendarMonth(client.paymentType, {
+      leaseBounds,
+      leaseStart: leaseStartDateMemo,
+      rentDurationMonths: client.rentalAgreement?.rentDurationMonths ?? 12,
+      buyBounds: buyCalBounds,
+      buyInstallmentCount: purchaseInstallmentsForBounds.length,
+    })
+    setCalYear(year)
+    setCalMonth(month)
+  }, [calendarInitKey, client, leaseBounds, leaseStartDateMemo, buyCalBounds, purchaseInstallmentsForBounds.length])
 
   if (isLoading) {
     return <div className="py-20 text-center text-muted-foreground">Уншиж байна...</div>
@@ -833,7 +829,6 @@ export default function ClientDetailPage() {
 
   const leaseStartDate = leaseStartDateMemo
   const rentDurationMonths = client.rentalAgreement?.rentDurationMonths ?? 12
-  const rentalLeaseActive = client.rentalAgreement?.status === "active"
   const rentSchedules = client.rentalAgreement?.paymentSchedules ?? []
   const buyInstallments = client.purchaseAgreement?.installments ?? []
   const leaseStartStr = client.rentalAgreement?.leaseStartAt ?? client.createdAt
@@ -850,21 +845,6 @@ export default function ClientDetailPage() {
       } catch {
         toast.error("Устгахад алдаа гарлаа")
       }
-    }
-  }
-
-  const handleCancelRental = async () => {
-    if (
-      !window.confirm(
-        "Түрээсийг цуцлах уу? Ирээдүйн хүлээгдэж буй түрээсийн нэхэмжлэхүүд цуцлагдана."
-      )
-    ) {
-      return
-    }
-    try {
-      await cancelRentalMutation.mutateAsync(client.id)
-    } catch {
-      toast.error("Цуцлахад алдаа гарлаа")
     }
   }
 
@@ -896,7 +876,7 @@ export default function ClientDetailPage() {
   const canGoNextCal =
     client.paymentType === "rent" ? canGoNextCalRent : canGoNextCalBuy
 
-  const canGenerateRentCalendar = clientActive && rentalLeaseActive
+  const canGenerateRentCalendar = clientActive
   const canGenerateBuyCalendar = clientActive
 
   const calPrev = () => {
@@ -981,10 +961,6 @@ export default function ClientDetailPage() {
     if (paydayModalDay == null) return
     if (!clientActive) {
       toast.error("Идэвхгүй харилцагчид шинэ нэхэмжлэх үүсгэх боломжгүй")
-      return
-    }
-    if (!rentalLeaseActive) {
-      toast.error("Түрээс цуцлагдсан тул нэхэмжлэх үүсгэх боломжгүй")
       return
     }
     setGeneratingInModal(true)
@@ -1185,17 +1161,6 @@ export default function ClientDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {client.paymentType === "rent" &&
-              client.rentalAgreement?.status === "active" ? (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => void handleCancelRental()}
-                disabled={cancelRentalMutation.isPending}
-              >
-                Түрээс цуцлах
-              </Button>
-            ) : null}
             <Link to={`/clients/${client.id}/edit`}>
               <Button variant="outline" className="gap-2">
                 <Edit size={16} />
@@ -1353,12 +1318,6 @@ export default function ClientDetailPage() {
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground uppercase">Хугацаа (сар)</p>
                     <p>{client.rentalAgreement.rentDurationMonths}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Төлөв</p>
-                    <Badge variant={client.rentalAgreement.status === "active" ? "success" : "outline"}>
-                      {client.rentalAgreement.status === "active" ? "Идэвхтэй" : "Цуцлагдсан"}
-                    </Badge>
                   </div>
                 </div>
               ) : null}

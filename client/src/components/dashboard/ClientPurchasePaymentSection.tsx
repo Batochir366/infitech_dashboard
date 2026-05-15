@@ -5,7 +5,11 @@ import { DatePicker } from "../ui/DatePicker"
 import { NumberInput } from "../ui/NumberInput"
 import type { ClientFormValues } from "./clientFormSchema"
 
-export function ClientPurchasePaymentSection() {
+interface ClientPurchasePaymentSectionProps {
+  embedded?: boolean
+}
+
+export function ClientPurchasePaymentSection({ embedded = false }: ClientPurchasePaymentSectionProps) {
   const {
     control,
     formState: { errors },
@@ -17,8 +21,10 @@ export function ClientPurchasePaymentSection() {
   })
 
   return (
-    <div className="rounded-lg border p-4 space-y-4">
-      <p className="text-sm font-semibold">Худалдан авалтын төлбөрийн мэдээлэл</p>
+    <div className={embedded ? "space-y-4" : "rounded-lg border p-4 space-y-4"}>
+      {!embedded && (
+        <p className="text-sm font-semibold">Худалдан авалтын төлбөрийн мэдээлэл</p>
+      )}
 
       <div className="grid gap-2">
         <label htmlFor="totalPrice" className="text-sm font-medium text-muted-foreground">

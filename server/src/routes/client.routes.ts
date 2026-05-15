@@ -6,7 +6,6 @@ import {
   createClient,
   updateClient,
   deleteClient,
-  cancelRental,
 } from "../controllers/client.controller";
 
 const router = Router();
@@ -15,7 +14,6 @@ router.use(authMiddleware);
 
 router.get("/", getClients);
 router.post("/", createClient);
-router.post("/:id/cancel-rental", cancelRental);
 router.get("/:id", getClientById);
 router.put("/:id", updateClient);
 router.delete("/:id", deleteClient);

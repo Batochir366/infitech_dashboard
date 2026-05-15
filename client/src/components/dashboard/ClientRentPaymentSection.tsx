@@ -5,7 +5,12 @@ import { Input } from "../ui/Input"
 import { NumberInput } from "../ui/NumberInput"
 import type { ClientFormValues } from "./clientFormSchema"
 
-export function ClientRentPaymentSection() {
+interface ClientRentPaymentSectionProps {
+  /** Parent FormSection-ийн дотор — давхар хүрээгүй */
+  embedded?: boolean
+}
+
+export function ClientRentPaymentSection({ embedded = false }: ClientRentPaymentSectionProps) {
   const {
     control,
     formState: { errors },
@@ -17,8 +22,10 @@ export function ClientRentPaymentSection() {
   })
 
   return (
-    <div className="rounded-lg border p-4 space-y-4">
-      <p className="text-sm font-semibold">Түрээсийн төлбөрийн мэдээлэл</p>
+    <div className={embedded ? "space-y-4" : "rounded-lg border p-4 space-y-4"}>
+      {!embedded && (
+        <p className="text-sm font-semibold">Түрээсийн төлбөрийн мэдээлэл</p>
+      )}
 
       <div className="grid gap-2 max-w-xs">
         <label htmlFor="rentDurationMonths" className="text-sm font-medium text-muted-foreground">
@@ -40,9 +47,6 @@ export function ClientRentPaymentSection() {
         {errors.rentDurationMonths && (
           <p className="text-xs text-destructive">{errors.rentDurationMonths.message}</p>
         )}
-        <p className="text-xs text-muted-foreground">
-          Түрээс эхлэх огноо нь бүртгэлийн огнооноос автоматаар тооцогдоно
-        </p>
       </div>
 
       <div className="grid gap-2">

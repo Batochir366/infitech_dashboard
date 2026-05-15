@@ -134,7 +134,7 @@ export default function ModuleDetailPage() {
         onClose={() => setIsAddPlanOpen(false)}
         title="Шинэ Тариф нэмэх"
         description={`"${module.title}" модульд тариф нэмнэ үү.`}
-        className="max-w-2xl"
+        className="max-w-5xl"
       >
         <PlanForm
           defaultModuleId={moduleId}
@@ -152,7 +152,7 @@ export default function ModuleDetailPage() {
         onClose={() => setEditPlanId(null)}
         title="Тариф засах"
         description="Тарифын мэдээллийг шинэчлэнэ үү."
-        className="max-w-2xl"
+        className="max-w-5xl"
       >
         <PlanForm
           planId={editPlanId ?? undefined}

@@ -135,7 +135,10 @@ export function DatePicker({
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-              onClick={() => setViewMonth((m) => m.subtract(1, "month"))}
+              onClick={(e) => {
+                e.stopPropagation()
+                setViewMonth((m) => dayjs(m).subtract(1, "month"))
+              }}
               aria-label="Өмнөх сар"
             >
               <ChevronLeft size={16} />
@@ -146,7 +149,10 @@ export function DatePicker({
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-              onClick={() => setViewMonth((m) => m.add(1, "month"))}
+              onClick={(e) => {
+                e.stopPropagation()
+                setViewMonth((m) => dayjs(m).add(1, "month"))
+              }}
               aria-label="Дараагийн сар"
             >
               <ChevronRight size={16} />

@@ -5,6 +5,7 @@ import { useSystems } from "../../hooks/useSystems"
 import { useToast } from "../../context/ToastContext"
 import type { CreateClientInput, PaymentType } from "../../types/client"
 import { Button } from "../ui/Button"
+import { FormSection } from "../ui/FormSection"
 import { Input } from "../ui/Input"
 import { useEffect, useState, useRef } from "react"
 import { User, Building2, Loader2, ChevronDown, X, ImageIcon } from "lucide-react"
@@ -309,151 +310,163 @@ export function ClientForm({
         onSubmit={handleSubmit(onSubmit, () => {
           toast.error("Формыг шалгана уу — улаан талбаруудыг бөглөнө үү")
         })}
-        className="space-y-4"
+        className="space-y-5"
       >
         <input type="hidden" {...register("paymentType")} />
-
-        {!isEdit && (
-          <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
-            <button
-              type="button"
-              onClick={() => switchToType("person")}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "person"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-            >
-              <User className="w-4 h-4" />
-              <span>Хувь хүн</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => switchToType("company")}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "company"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Байгууллага</span>
-            </button>
-          </div>
-        )}
-
-        {clientType === "company" ? (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <label htmlFor="regNumber" className="text-sm font-medium text-muted-foreground">
-                Байгууллагын регистрийн дугаар
-              </label>
-              <div className="relative">
-                <Input
-                  id="regNumber"
-                  {...register("regNumber", {
-                    onChange: (e) => {
-                      const val: string = e.target.value.replace(/\D/g, "")
-                      if (val.length === 7) lookupCompany(val)
-                      else if (val.length < 7) {
-                        setValue("name", "")
-                        clearErrors("regNumber")
-                      }
-                    },
-                  })}
-                  placeholder="1234567"
-                  maxLength={7}
-                  inputMode="numeric"
-                  onBlur={(e) => lookupCompany(e.target.value)}
-                  className="pr-8"
-                />
-                {isCheckingRegNo && (
-                  <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-                )}
+        <div className=" flex justify-between">
+          <FormSection className="w-1/2" title="Ерөнхий мэдээлэл">
+            {!isEdit && (
+              <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => switchToType("person")}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "person"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span>Хувь хүн</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchToType("company")}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "company"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Байгууллага</span>
+                </button>
               </div>
-              {errors.regNumber && (
-                <p className="text-xs text-destructive">{errors.regNumber.message}</p>
-              )}
+            )}
+
+            {clientType === "company" ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label htmlFor="regNumber" className="text-sm font-medium text-muted-foreground">
+                    Байгууллагын регистрийн дугаар
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="regNumber"
+                      {...register("regNumber", {
+                        onChange: (e) => {
+                          const val: string = e.target.value.replace(/\D/g, "")
+                          if (val.length === 7) lookupCompany(val)
+                          else if (val.length < 7) {
+                            setValue("name", "")
+                            clearErrors("regNumber")
+                          }
+                        },
+                      })}
+                      placeholder="1234567"
+                      maxLength={7}
+                      inputMode="numeric"
+                      onBlur={(e) => lookupCompany(e.target.value)}
+                      className="pr-8"
+                    />
+                    {isCheckingRegNo && (
+                      <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {errors.regNumber && (
+                    <p className="text-xs text-destructive">{errors.regNumber.message}</p>
+                  )}
+                </div>
+                <div className="grid gap-2 min-w-0">
+                  <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
+                    Байгууллагын нэр
+                  </label>
+                  <Input
+                    id="name"
+                    {...register("name")}
+                    placeholder="Регистр оруулахад автоматаар бөглөгдөнө"
+                    readOnly
+                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                  {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
+                    Нэр *
+                  </label>
+                  <Input id="name" {...register("name")} placeholder="Нэр оруулна уу" />
+                  {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+                    Имэйл (Сонголтоор)
+                  </label>
+                  <Input id="email" type="email" {...register("email")} placeholder="example@mail.com" />
+                  {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="phoneNumber" className="text-sm font-medium text-muted-foreground">Утасны дугаар *</label>
+                <Input id="phoneNumber" {...register("phoneNumber")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
+                {errors.phoneNumber && <p className="text-xs text-destructive">{errors.phoneNumber.message}</p>}
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="phoneNumber2" className="text-sm font-medium text-muted-foreground">Утасны дугаар 2 (Сонголтоор)</label>
+                <Input id="phoneNumber2" {...register("phoneNumber2")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
+              </div>
             </div>
-            <div className="grid gap-2 min-w-0">
-              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
-                Байгууллагын нэр
-              </label>
-              <Input
-                id="name"
-                {...register("name")}
-                placeholder="Регистр оруулахад автоматаар бөглөгдөнө"
-                readOnly
-                className="bg-muted text-muted-foreground cursor-not-allowed"
+
+            <div className="grid gap-2">
+              <label htmlFor="domain" className="text-sm font-medium text-muted-foreground">Домэйн (Сонголтоор)</label>
+              <Input id="domain" {...register("domain")} placeholder="example.mn" />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
+              <Controller
+                name="systemId"
+                control={control}
+                render={({ field }) => {
+                  const systems = systemsData?.data.filter((s) => s.isEnabled) ?? []
+                  const selected = systems.find((s) => String(s.id) === field.value)
+                  return <SystemSelect systems={systems} value={field.value} onChange={field.onChange} selected={selected} />
+                }}
               />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
+
             <div className="grid gap-2">
-              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
-                Нэр *
-              </label>
-              <Input id="name" {...register("name")} placeholder="Нэр оруулна уу" />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              <label htmlFor="notes" className="text-sm font-medium text-muted-foreground">Тэмдэглэл (Сонголтоор)</label>
+              <textarea
+                id="notes"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                {...register("notes")}
+                placeholder="Нэмэлт мэдээлэл..."
+              />
             </div>
-            <div className="grid gap-2">
-              <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-                Имэйл (Сонголтоор)
-              </label>
-              <Input id="email" type="email" {...register("email")} placeholder="example@mail.com" />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-          </div>
-        )}
+          </FormSection>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <label htmlFor="phoneNumber" className="text-sm font-medium text-muted-foreground">Утасны дугаар *</label>
-            <Input id="phoneNumber" {...register("phoneNumber")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
-            {errors.phoneNumber && <p className="text-xs text-destructive">{errors.phoneNumber.message}</p>}
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="phoneNumber2" className="text-sm font-medium text-muted-foreground">Утасны дугаар 2 (Сонголтоор)</label>
-            <Input id="phoneNumber2" {...register("phoneNumber2")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
-          </div>
+          <FormSection
+            className="w-1/2"
+            title="Төлбөрийн мэдээлэл"
+            description={
+              paymentType === "rent"
+                ? "Түрээсийн хугацаа болон сар бүрийн төлбөр"
+                : "Нийт үнэ болон хуваан төлбөрийн хуваарь"
+            }
+          >
+            {paymentType === "rent" ? (
+              <ClientRentPaymentSection embedded />
+            ) : (
+              <ClientPurchasePaymentSection embedded />
+            )}
+          </FormSection>
         </div>
-
-        <div className="grid gap-2">
-          <label htmlFor="domain" className="text-sm font-medium text-muted-foreground">Домэйн (Сонголтоор)</label>
-          <Input id="domain" {...register("domain")} placeholder="example.mn" />
-        </div>
-
-        {paymentType === "rent" ? (
-          <ClientRentPaymentSection />
-        ) : (
-          <ClientPurchasePaymentSection />
-        )}
-
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
-          <Controller
-            name="systemId"
-            control={control}
-            render={({ field }) => {
-              const systems = systemsData?.data.filter((s) => s.isEnabled) ?? []
-              const selected = systems.find((s) => String(s.id) === field.value)
-              return <SystemSelect systems={systems} value={field.value} onChange={field.onChange} selected={selected} />
-            }}
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <label htmlFor="notes" className="text-sm font-medium text-muted-foreground">Тэмдэглэл (Сонголтоор)</label>
-          <textarea
-            id="notes"
-            rows={3}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            {...register("notes")}
-            placeholder="Нэмэлт мэдээлэл..."
-          />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-4 border-t mt-6">
+        <div className="flex justify-end gap-2 pt-2 border-t">
           <Button
             type="button"
             variant="outline"

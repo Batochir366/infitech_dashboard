@@ -112,12 +112,6 @@ export const generateInvoice = async (
   }
 
   const rental = client.rentalAgreement;
-  if (rental.status !== "active") {
-    res.status(403).json({
-      message: "Түрээс цуцлагдсан тул шинэ нэхэмжлэх үүсгэх боломжгүй",
-    });
-    return;
-  }
 
   if (
     !isRentalBillingDateInLease(
