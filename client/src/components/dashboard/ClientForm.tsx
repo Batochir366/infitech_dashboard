@@ -1,13 +1,20 @@
-import { useForm, Controller, useFieldArray } from "react-hook-form"
+import { useForm, Controller, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { useClient, useCreateClient, useUpdateClient } from "../../hooks/useClients"
 import { useSystems } from "../../hooks/useSystems"
+import { useToast } from "../../context/ToastContext"
+import type { CreateClientInput, PaymentType } from "../../types/client"
 import { Button } from "../ui/Button"
 import { Input } from "../ui/Input"
-import { NumberInput } from "../ui/NumberInput"
 import { useEffect, useState, useRef } from "react"
-import { User, Building2, Loader2, ChevronDown, X, ImageIcon, Plus, Trash2 } from "lucide-react"
+import { User, Building2, Loader2, ChevronDown, X, ImageIcon } from "lucide-react"
+import {
+  clientSchema,
+  clientFormDefaultValues,
+  type ClientFormValues,
+} from "./clientFormSchema"
+import { ClientRentPaymentSection } from "./ClientRentPaymentSection"
+import { ClientPurchasePaymentSection } from "./ClientPurchasePaymentSection"
 
 const EBARIMT_MERCHANT_INFO_URL = "https://info.ebarimt.mn/rest/merchant/info"
 
@@ -28,36 +35,13 @@ const fetchMerchantByRegNo = async (regno: string): Promise<EbarimtMerchantInfo 
   }
 }
 
-const paymentScheduleSchema = z.object({
-  day: z.number().min(1, "1-31").max(31, "1-31"),
-  amount: z.number().min(0, "0-с их"),
-})
-
-const clientSchema = z.object({
-  clientType: z.enum(["person", "company"]),
-  name: z.string().min(2, "Нэр хамгийн багадаа 2 тэмдэгт байх ёстой"),
-  regNumber: z.string().optional(),
-  phoneNumber: z.string().min(1, "Утасны дугаар оруулна уу"),
-  phoneNumber2: z.string().optional(),
-  email: z.string().email("Зөв имэйл хаяг оруулна уу").optional().or(z.literal("")),
-  domain: z.string().optional(),
-  paymentType: z.enum(["rent", "buy"]),
-  paymentSchedules: z.array(paymentScheduleSchema).min(1, "Төлбөрийн хуваарь оруулна уу"),
-  status: z.enum(["active", "inactive"]),
-  notes: z.string().optional(),
-  productType: z.string().optional(),
-  systemId: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.clientType === "company" && data.regNumber?.replace(/\D/g, "").length !== 7) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["regNumber"],
-      message: "7 оронтой байгууллагын регистр оруулна уу",
-    })
-  }
-})
-
-type ClientFormValues = z.infer<typeof clientSchema>
+function toDateInputValue(iso: string): string {
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
 
 interface SystemOption {
   id: number
@@ -133,9 +117,8 @@ function SystemSelect({
                   key={s.id}
                   type="button"
                   onClick={() => { onChange(String(s.id)); setOpen(false) }}
-                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent ${
-                    String(s.id) === value ? "bg-accent font-medium" : ""
-                  }`}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent ${String(s.id) === value ? "bg-accent font-medium" : ""
+                    }`}
                 >
                   {s.photo ? (
                     <img src={s.photo} alt={s.name} className="h-7 w-7 rounded-md object-cover border" />
@@ -157,17 +140,33 @@ function SystemSelect({
 
 interface ClientFormProps {
   clientId?: string
+  /** Шинэ үүсгэхэд түрээс эсвэл худалдан авалт */
+  defaultPaymentType?: PaymentType
   onSuccess: () => void
   onCancel: () => void
 }
 
-export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
+export function ClientForm({
+  clientId,
+  defaultPaymentType = "rent",
+  onSuccess,
+  onCancel,
+}: ClientFormProps) {
   const isEdit = !!clientId
   const { data: client, isLoading: isFetching } = useClient(clientId || "")
   const { data: systemsData } = useSystems({ limit: 100 })
   const createClient = useCreateClient()
   const updateClient = useUpdateClient()
+  const toast = useToast()
   const [isCheckingRegNo, setIsCheckingRegNo] = useState(false)
+
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      ...clientFormDefaultValues,
+      paymentType: defaultPaymentType,
+    },
+  })
 
   const {
     register,
@@ -179,32 +178,16 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
     clearErrors,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<ClientFormValues>({
-    resolver: zodResolver(clientSchema),
-    defaultValues: {
-      clientType: "person",
-      status: "active",
-      paymentType: "rent",
-      paymentSchedules: [{ day: 1, amount: 0 }],
-      name: "",
-      regNumber: "",
-      phoneNumber: "",
-      phoneNumber2: "",
-      email: "",
-      domain: "",
-      notes: "",
-      productType: undefined,
-      systemId: "",
-    },
-  })
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "paymentSchedules",
-  })
+  } = form
 
   const clientType = watch("clientType")
   const paymentType = watch("paymentType")
+
+  useEffect(() => {
+    if (!isEdit) {
+      setValue("paymentType", defaultPaymentType)
+    }
+  }, [defaultPaymentType, isEdit, setValue])
 
   useEffect(() => {
     if (client) {
@@ -217,9 +200,22 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
         email: client.email || "",
         domain: client.domain || "",
         paymentType: client.paymentType,
-        paymentSchedules: client.paymentSchedules.length > 0
-          ? client.paymentSchedules.map((ps) => ({ day: ps.day, amount: ps.amount }))
-          : [{ day: 1, amount: 0 }],
+        rentDurationMonths: client.rentalAgreement?.rentDurationMonths ?? 12,
+        paymentSchedules:
+          client.rentalAgreement && client.rentalAgreement.paymentSchedules.length > 0
+            ? client.rentalAgreement.paymentSchedules.map((ps) => ({
+              day: ps.day,
+              amount: ps.amount,
+            }))
+            : [{ day: 1, amount: 0 }],
+        totalPrice: client.purchaseAgreement?.totalPrice ?? 0,
+        installments:
+          client.purchaseAgreement && client.purchaseAgreement.installments.length > 0
+            ? client.purchaseAgreement.installments.map((i) => ({
+              dueDate: toDateInputValue(i.dueDate),
+              amount: i.amount,
+            }))
+            : [{ dueDate: "", amount: 0 }],
         status: client.status,
         notes: client.notes || "",
         productType: client.productType || undefined,
@@ -252,11 +248,37 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
 
   const onSubmit = async (data: ClientFormValues) => {
     try {
-      const { clientType: _type, systemId: systemIdStr, ...rest } = data
-      const payload = {
+      const {
+        clientType: _clientType,
+        systemId: systemIdStr,
+        rentDurationMonths,
+        paymentSchedules,
+        totalPrice,
+        installments,
+        paymentType: pt,
+        ...rest
+      } = data
+      const payload: CreateClientInput = {
         ...rest,
+        paymentType: pt,
         domain: rest.domain || null,
         systemId: systemIdStr ? parseInt(systemIdStr, 10) : null,
+        ...(pt === "rent"
+          ? {
+            rental: {
+              rentDurationMonths,
+              paymentSchedules,
+            },
+          }
+          : {
+            purchase: {
+              totalPrice,
+              installments: installments.map((r) => ({
+                dueDate: r.dueDate,
+                amount: r.amount,
+              })),
+            },
+          }),
       }
       if (isEdit) {
         await updateClient.mutateAsync({ id: clientId!, data: payload })
@@ -282,248 +304,169 @@ export function ClientForm({ clientId, onSuccess, onCancel }: ClientFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <FormProvider {...form}>
+      <form
+        onSubmit={handleSubmit(onSubmit, () => {
+          toast.error("Формыг шалгана уу — улаан талбаруудыг бөглөнө үү")
+        })}
+        className="space-y-4"
+      >
+        <input type="hidden" {...register("paymentType")} />
 
-      {!isEdit && (
-        <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
-          <button
-            type="button"
-            onClick={() => switchToType("person")}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "person"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
-          >
-            <User className="w-4 h-4" />
-            <span>Хувь хүн</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => switchToType("company")}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "company"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Байгууллага</span>
-          </button>
-        </div>
-      )}
-
-      {clientType === "company" && (
-        <div className="grid gap-2">
-          <label htmlFor="regNumber" className="text-sm font-medium text-muted-foreground">
-            Байгууллагын регистрийн дугаар *
-          </label>
-          <div className="relative">
-            <Input
-              id="regNumber"
-              {...register("regNumber", {
-                onChange: (e) => {
-                  const val: string = e.target.value.replace(/\D/g, "")
-                  if (val.length === 7) lookupCompany(val)
-                  else if (val.length < 7) {
-                    setValue("name", "")
-                    clearErrors("regNumber")
-                  }
-                },
-              })}
-              placeholder="1234567"
-              maxLength={7}
-              inputMode="numeric"
-              onBlur={(e) => lookupCompany(e.target.value)}
-              className="pr-8"
-            />
-            {isCheckingRegNo && (
-              <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-            )}
+        {!isEdit && (
+          <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              type="button"
+              onClick={() => switchToType("person")}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "person"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Хувь хүн</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => switchToType("company")}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${clientType === "company"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Байгууллага</span>
+            </button>
           </div>
-          {errors.regNumber && (
-            <p className="text-xs text-destructive">{errors.regNumber.message}</p>
-          )}
-        </div>
-      )}
+        )}
 
-      <div className="grid gap-2">
-        <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
-          {clientType === "company" ? "Байгууллагын нэр" : "Нэр *"}
-        </label>
-        <Input
-          id="name"
-          {...register("name")}
-          placeholder={clientType === "company" ? "Регистр оруулахад автоматаар бөглөгдөнө" : "Нэр оруулна уу"}
-          readOnly={clientType === "company"}
-          className={clientType === "company" ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-        />
-        {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-      </div>
-
-      {clientType === "person" && (
-        <div className="grid gap-2">
-          <label htmlFor="email" className="text-sm font-medium text-muted-foreground">Имэйл (Сонголтоор)</label>
-          <Input id="email" type="email" {...register("email")} placeholder="example@mail.com" />
-          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <label htmlFor="phoneNumber" className="text-sm font-medium text-muted-foreground">Утасны дугаар *</label>
-          <Input id="phoneNumber" {...register("phoneNumber")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
-          {errors.phoneNumber && <p className="text-xs text-destructive">{errors.phoneNumber.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <label htmlFor="phoneNumber2" className="text-sm font-medium text-muted-foreground">Утасны дугаар 2 (Сонголтоор)</label>
-          <Input id="phoneNumber2" {...register("phoneNumber2")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <label htmlFor="domain" className="text-sm font-medium text-muted-foreground">Домэйн (Сонголтоор)</label>
-        <Input id="domain" {...register("domain")} placeholder="example.mn" />
-      </div>
-
-      {/* Payment Type */}
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-muted-foreground">Төлбөрийн төрөл *</label>
-        <div className="flex gap-2 bg-gray-100 rounded-lg p-1 w-fit">
-          <button
-            type="button"
-            onClick={() => setValue("paymentType", "rent")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${paymentType === "rent"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
-          >
-            Түрээс
-          </button>
-          <button
-            type="button"
-            onClick={() => setValue("paymentType", "buy")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${paymentType === "buy"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
-          >
-            Худалдан авалт
-          </button>
-        </div>
-      </div>
-
-      {/* Payment Schedules */}
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-muted-foreground">Төлбөрийн хуваарь *</label>
-        <div className="space-y-2">
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex items-center gap-2">
-              <div className="w-20">
-                <Controller
-                  name={`paymentSchedules.${index}.day`}
-                  control={control}
-                  render={({ field: dayField }) => (
-                    <Input
-                      inputMode="numeric"
-                      maxLength={2}
-                      placeholder="Өдөр"
-                      value={dayField.value || ""}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, "")
-                        const num = parseInt(raw) || 0
-                        if (num > 31) return
-                        dayField.onChange(num)
-                      }}
-                      onBlur={() => {
-                        if (dayField.value < 1) dayField.onChange(1)
-                        if (dayField.value > 31) dayField.onChange(31)
-                      }}
-                      className="text-center"
-                    />
-                  )}
+        {clientType === "company" ? (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label htmlFor="regNumber" className="text-sm font-medium text-muted-foreground">
+                Байгууллагын регистрийн дугаар
+              </label>
+              <div className="relative">
+                <Input
+                  id="regNumber"
+                  {...register("regNumber", {
+                    onChange: (e) => {
+                      const val: string = e.target.value.replace(/\D/g, "")
+                      if (val.length === 7) lookupCompany(val)
+                      else if (val.length < 7) {
+                        setValue("name", "")
+                        clearErrors("regNumber")
+                      }
+                    },
+                  })}
+                  placeholder="1234567"
+                  maxLength={7}
+                  inputMode="numeric"
+                  onBlur={(e) => lookupCompany(e.target.value)}
+                  className="pr-8"
                 />
+                {isCheckingRegNo && (
+                  <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
-              <span className="text-muted-foreground text-sm">—</span>
-              <div className="flex-1">
-                <Controller
-                  name={`paymentSchedules.${index}.amount`}
-                  control={control}
-                  render={({ field: amountField }) => (
-                    <NumberInput
-                      value={amountField.value}
-                      onChange={amountField.onChange}
-                      onBlur={amountField.onBlur}
-                      currency
-                      placeholder="0"
-                    />
-                  )}
-                />
-              </div>
-              {fields.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 text-destructive hover:text-destructive"
-                  onClick={() => remove(index)}
-                >
-                  <Trash2 size={14} />
-                </Button>
+              {errors.regNumber && (
+                <p className="text-xs text-destructive">{errors.regNumber.message}</p>
               )}
             </div>
-          ))}
-          {errors.paymentSchedules && !Array.isArray(errors.paymentSchedules) && (
-            <p className="text-xs text-destructive">{errors.paymentSchedules.message}</p>
-          )}
+            <div className="grid gap-2 min-w-0">
+              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
+                Байгууллагын нэр
+              </label>
+              <Input
+                id="name"
+                {...register("name")}
+                placeholder="Регистр оруулахад автоматаар бөглөгдөнө"
+                readOnly
+                className="bg-muted text-muted-foreground cursor-not-allowed"
+              />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">
+                Нэр *
+              </label>
+              <Input id="name" {...register("name")} placeholder="Нэр оруулна уу" />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+                Имэйл (Сонголтоор)
+              </label>
+              <Input id="email" type="email" {...register("email")} placeholder="example@mail.com" />
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <label htmlFor="phoneNumber" className="text-sm font-medium text-muted-foreground">Утасны дугаар *</label>
+            <Input id="phoneNumber" {...register("phoneNumber")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
+            {errors.phoneNumber && <p className="text-xs text-destructive">{errors.phoneNumber.message}</p>}
+          </div>
+          <div className="grid gap-2">
+            <label htmlFor="phoneNumber2" className="text-sm font-medium text-muted-foreground">Утасны дугаар 2 (Сонголтоор)</label>
+            <Input id="phoneNumber2" {...register("phoneNumber2")} placeholder="9900-0000" inputMode="numeric" maxLength={8} />
+          </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-fit gap-1.5 mt-1"
-          onClick={() => append({ day: 1, amount: 0 })}
-        >
-          <Plus size={14} />
-          <span>Хуваарь нэмэх</span>
-        </Button>
-      </div>
 
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
-        <Controller
-          name="systemId"
-          control={control}
-          render={({ field }) => {
-            const systems = systemsData?.data.filter((s) => s.isEnabled) ?? []
-            const selected = systems.find((s) => String(s.id) === field.value)
-            return <SystemSelect systems={systems} value={field.value} onChange={field.onChange} selected={selected} />
-          }}
-        />
-      </div>
+        <div className="grid gap-2">
+          <label htmlFor="domain" className="text-sm font-medium text-muted-foreground">Домэйн (Сонголтоор)</label>
+          <Input id="domain" {...register("domain")} placeholder="example.mn" />
+        </div>
 
-      <div className="grid gap-2">
-        <label htmlFor="notes" className="text-sm font-medium text-muted-foreground">Тэмдэглэл (Сонголтоор)</label>
-        <textarea
-          id="notes"
-          rows={3}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          {...register("notes")}
-          placeholder="Нэмэлт мэдээлэл..."
-        />
-      </div>
+        {paymentType === "rent" ? (
+          <ClientRentPaymentSection />
+        ) : (
+          <ClientPurchasePaymentSection />
+        )}
 
-      <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Цуцлах
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Хадгалж байна..." : isEdit ? "Шинэчлэх" : "Нэмэх"}
-        </Button>
-      </div>
-    </form>
+        <div className="grid gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Бүтээгдэхүүний төрөл (Сонголтоор)</label>
+          <Controller
+            name="systemId"
+            control={control}
+            render={({ field }) => {
+              const systems = systemsData?.data.filter((s) => s.isEnabled) ?? []
+              const selected = systems.find((s) => String(s.id) === field.value)
+              return <SystemSelect systems={systems} value={field.value} onChange={field.onChange} selected={selected} />
+            }}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <label htmlFor="notes" className="text-sm font-medium text-muted-foreground">Тэмдэглэл (Сонголтоор)</label>
+          <textarea
+            id="notes"
+            rows={3}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            {...register("notes")}
+            placeholder="Нэмэлт мэдээлэл..."
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Цуцлах
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Хадгалж байна..." : isEdit ? "Шинэчлэх" : "Нэмэх"}
+          </Button>
+        </div>
+      </form>
+    </FormProvider>
   )
 }

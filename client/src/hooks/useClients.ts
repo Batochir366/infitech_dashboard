@@ -64,3 +64,20 @@ export const useDeleteClient = () => {
     },
   });
 };
+
+export const useCancelRental = () => {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: clientService.cancelRental,
+    onSuccess: (_, clientId) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['clients', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'client', clientId] });
+      toast.success('Түрээс цуцлагдлаа');
+    },
+    onError: () => {
+      toast.error('Түрээс цуцлахад алдаа гарлаа');
+    },
+  });
+};

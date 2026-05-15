@@ -17,56 +17,98 @@ model User {
 }
 
 model Client {
-  id               Int               @id @default(autoincrement())
-  name             String
-  regNumber        String?
-  phoneNumber      String
-  phoneNumber2     String?
-  email            String?
-  paymentType      PaymentType       @default(rent)
-  status           ClientStatus      @default(active)
-  domain           String?
-  notes            String?
-  productType      String?
-  systemId         Int?
-  system           System?           @relation(fields: [systemId], references: [id])
-  isConnected      Boolean           @default(false)
-  paymentSchedules PaymentSchedule[]
-  invoices         Invoice[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                Int                @id @default(autoincrement())
+  name              String
+  regNumber         String?
+  phoneNumber       String
+  phoneNumber2      String?
+  email             String?
+  paymentType       PaymentType        @default(rent)
+  status            ClientStatus       @default(active)
+  domain            String?
+  notes             String?
+  productType       String?
+  systemId          Int?
+  system            System?            @relation(fields: [systemId], references: [id])
+  isConnected       Boolean            @default(false)
+  rentalAgreement   RentalAgreement?
+  purchaseAgreement PurchaseAgreement?
+  invoices          Invoice[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@map("clients")
 }
 
-model Invoice {
-  id            Int           @id @default(autoincrement())
-  invoiceNumber String        @unique
-  publicToken   String        @unique
-  clientId      Int
-  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  amount        Float
-  description   String?
-  status        InvoiceStatus @default(pending)
-  issuedAt      DateTime      @default(now())
-  dueDate       DateTime
-  paidAt        DateTime?
-  scheduleDay   Int
-  scheduleMonth Int
-  scheduleYear  Int
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+model RentalAgreement {
+  id                 Int                   @id @default(autoincrement())
+  clientId           Int                   @unique
+  client             Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status             RentalAgreementStatus @default(active)
+  cancelledAt        DateTime?
+  leaseStartAt       DateTime              @default(now())
+  rentDurationMonths Int                   @default(12)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  paymentSchedules   PaymentSchedule[]
 
-  @@unique([clientId, scheduleYear, scheduleMonth, scheduleDay])
+  @@map("rental_agreements")
+}
+
+model PurchaseAgreement {
+  id            Int                     @id @default(autoincrement())
+  clientId      Int                     @unique
+  client        Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  totalPrice    Float
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  installments  PurchaseInstallment[]
+
+  @@map("purchase_agreements")
+}
+
+model PurchaseInstallment {
+  id                  Int               @id @default(autoincrement())
+  purchaseAgreementId Int
+  purchaseAgreement   PurchaseAgreement @relation(fields: [purchaseAgreementId], references: [id], onDelete: Cascade)
+  dueDate             DateTime
+  amount              Float
+  sortOrder           Int               @default(0)
+  invoice             Invoice?
+
+  @@map("purchase_installments")
+}
+
+model Invoice {
+  id                      Int                  @id @default(autoincrement())
+  invoiceNumber           String               @unique
+  publicToken             String               @unique
+  clientId                Int
+  client                  Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount                  Float
+  description             String?
+  status                  InvoiceStatus        @default(pending)
+  issuedAt                DateTime             @default(now())
+  dueDate                 DateTime
+  paidAt                  DateTime?
+  scheduleDay             Int
+  scheduleMonth           Int
+  scheduleYear            Int
+  rentPeriodKey           String?              @unique
+  purchaseInstallmentId   Int?                 @unique
+  purchaseInstallment     PurchaseInstallment? @relation(fields: [purchaseInstallmentId], references: [id], onDelete: SetNull)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
   @@map("invoices")
 }
 
 model PaymentSchedule {
-  id       Int    @id @default(autoincrement())
-  clientId Int
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  day      Int
-  amount   Float
+  id                Int             @id @default(autoincrement())
+  rentalAgreementId Int
+  rentalAgreement   RentalAgreement @relation(fields: [rentalAgreementId], references: [id], onDelete: Cascade)
+  day               Int
+  amount            Float
 
   @@map("payment_schedules")
 }
@@ -129,6 +171,11 @@ enum ClientStatus {
 enum PaymentType {
   rent
   buy
+}
+
+enum RentalAgreementStatus {
+  active
+  cancelled
 }
 
 enum InvoiceStatus {

@@ -30,6 +30,8 @@ export interface InvoiceRecord {
   scheduleDay: number;
   scheduleMonth: number;
   scheduleYear: number;
+  purchaseInstallmentId?: number | null;
+  rentPeriodKey?: string | null;
   client?: InvoiceClientSnapshot;
 }
 

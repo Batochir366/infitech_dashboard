@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { Prisma } from "../generated/prisma/client";
 import { InvoiceStatus } from "../generated/prisma/enums";
 import prisma from "../lib/prisma";
+import { isRentalBillingDateInLease, rentPeriodKey } from "../lib/lease";
 import type { AuthRequest } from "../middleware/auth.middleware";
 
 export function getCompanyFromEnv() {
@@ -44,6 +45,16 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
+const generateClientInclude = {
+  system: { select: { id: true, name: true, photo: true } },
+  rentalAgreement: {
+    include: { paymentSchedules: true },
+  },
+  purchaseAgreement: {
+    include: { installments: true },
+  },
+} as const;
+
 export const generateInvoice = async (
   req: AuthRequest,
   res: Response,
@@ -78,10 +89,7 @@ export const generateInvoice = async (
 
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    include: {
-      system: { select: { id: true, name: true, photo: true } },
-      paymentSchedules: true,
-    },
+    include: generateClientInclude,
   });
 
   if (!client) {
@@ -96,7 +104,37 @@ export const generateInvoice = async (
     return;
   }
 
-  const schedule = client.paymentSchedules.find((ps) => ps.day === day);
+  if (client.paymentType !== "rent" || !client.rentalAgreement) {
+    res.status(400).json({
+      message: "Энэ үйлдлийг зөвхөн түрээсийн харилцагчид ашиглана",
+    });
+    return;
+  }
+
+  const rental = client.rentalAgreement;
+  if (rental.status !== "active") {
+    res.status(403).json({
+      message: "Түрээс цуцлагдсан тул шинэ нэхэмжлэх үүсгэх боломжгүй",
+    });
+    return;
+  }
+
+  if (
+    !isRentalBillingDateInLease(
+      rental.leaseStartAt,
+      rental.rentDurationMonths,
+      year,
+      month,
+      day,
+    )
+  ) {
+    res.status(400).json({
+      message: "Сонгосон огноо түрээсийн хугацааны хүрээнд байхгүй",
+    });
+    return;
+  }
+
+  const schedule = rental.paymentSchedules.find((ps) => ps.day === day);
   if (!schedule) {
     res.status(400).json({ message: "Энэ өдөрт төлбөрийн хуваарь байхгүй" });
     return;
@@ -107,9 +145,8 @@ export const generateInvoice = async (
   const dueDate = addDays(issuedAt, 1);
   const domainPart = client.domain ? `${client.domain}` : client.name;
   const systemPart = client.system?.name || "систем";
-  const paymentLabel =
-    client.paymentType === "rent" ? "түрээс төлбөр" : "төлбөр";
-  const description = `${domainPart} - ${systemPart} ${paymentLabel} ${month} сар`;
+  const description = `${domainPart} - ${systemPart} түрээс төлбөр ${month} сар`;
+  const rpk = rentPeriodKey(client.id, year, month, day);
 
   try {
     const invoice = await prisma.invoice.create({
@@ -125,6 +162,7 @@ export const generateInvoice = async (
         scheduleDay: day,
         scheduleMonth: month,
         scheduleYear: year,
+        rentPeriodKey: rpk,
       },
       include: {
         client: {
@@ -145,12 +183,7 @@ export const generateInvoice = async (
       e.code === "P2002"
     ) {
       const existing = await prisma.invoice.findFirst({
-        where: {
-          clientId,
-          scheduleYear: year,
-          scheduleMonth: month,
-          scheduleDay: day,
-        },
+        where: { rentPeriodKey: rpk },
         include: {
           client: {
             include: {
@@ -161,6 +194,131 @@ export const generateInvoice = async (
       });
       res.status(409).json({
         message: "Энэ сарын энэ өдрийн нэхэмжлэх аль хэдийн үүссэн байна",
+        invoice: existing,
+        company: getCompanyFromEnv(),
+      });
+      return;
+    }
+    throw e;
+  }
+};
+
+export const generateInstallmentInvoice = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { clientId, installmentId } = req.body as {
+    clientId?: number;
+    installmentId?: number;
+  };
+
+  if (
+    clientId == null ||
+    installmentId == null ||
+    typeof clientId !== "number" ||
+    typeof installmentId !== "number"
+  ) {
+    res.status(400).json({ message: "clientId, installmentId are required" });
+    return;
+  }
+
+  const installment = await prisma.purchaseInstallment.findUnique({
+    where: { id: installmentId },
+    include: {
+      purchaseAgreement: true,
+    },
+  });
+
+  if (!installment || installment.purchaseAgreement.clientId !== clientId) {
+    res.status(404).json({ message: "Хуваан төлбөрийн мөр олдсонгүй" });
+    return;
+  }
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      system: { select: { id: true, name: true, photo: true } },
+    },
+  });
+
+  if (!client) {
+    res.status(404).json({ message: "Харилцагч олдсонгүй" });
+    return;
+  }
+
+  if (client.status !== "active") {
+    res.status(403).json({
+      message: "Идэвхгүй харилцагчид шинэ нэхэмжлэх үүсгэх боломжгүй",
+    });
+    return;
+  }
+
+  if (client.paymentType !== "buy") {
+    res.status(400).json({
+      message: "Энэ үйлдлийг зөвхөн худалдан авалтын харилцагчид ашиглана",
+    });
+    return;
+  }
+
+  const due = new Date(installment.dueDate);
+  const scheduleYear = due.getFullYear();
+  const scheduleMonth = due.getMonth() + 1;
+  const scheduleDay = due.getDate();
+
+  const issuedAt = new Date();
+  const invoiceNumber = await nextInvoiceNumber(issuedAt);
+  const dueDate = addDays(issuedAt, 1);
+  const domainPart = client.domain ? `${client.domain}` : client.name;
+  const systemPart = client.system?.name || "систем";
+  const description = `${domainPart} - ${systemPart} худалдан авалтын хуваан төлбөр`;
+
+  try {
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        publicToken: randomUUID(),
+        clientId: client.id,
+        amount: installment.amount,
+        description,
+        status: "pending",
+        issuedAt,
+        dueDate,
+        scheduleDay,
+        scheduleMonth,
+        scheduleYear,
+        purchaseInstallmentId: installment.id,
+        rentPeriodKey: null,
+      },
+      include: {
+        client: {
+          include: {
+            system: { select: { id: true, name: true, photo: true } },
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      invoice,
+      company: getCompanyFromEnv(),
+    });
+  } catch (e) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      const existing = await prisma.invoice.findUnique({
+        where: { purchaseInstallmentId: installmentId },
+        include: {
+          client: {
+            include: {
+              system: { select: { id: true, name: true, photo: true } },
+            },
+          },
+        },
+      });
+      res.status(409).json({
+        message: "Энэ хуваан төлбөрт нэхэмжлэх аль хэдийн үүссэн байна",
         invoice: existing,
         company: getCompanyFromEnv(),
       });

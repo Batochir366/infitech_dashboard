@@ -1,6 +1,7 @@
 import {
   Document,
   Font,
+  Image,
   Page,
   Text,
   View,
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 16,
   },
-  brand: { fontSize: 14, fontWeight: "bold" },
+  logo: { width: 128, marginBottom: 4 },
   title: { fontSize: 20, fontWeight: "bold", textAlign: "right" },
   metaBox: {
     borderWidth: 1,
@@ -103,14 +104,25 @@ function money(n: number) {
   return `${n.toLocaleString("mn-MN")}`;
 }
 
-export function InvoiceDocument({ data }: { data: InvoiceViewModel }) {
+export function InvoiceDocument({
+  data,
+  logoSrc,
+}: {
+  data: InvoiceViewModel;
+  /** PNG as data URL from `invoicePdf.ts` (HTTP URLs are unreliable in @react-pdf). */
+  logoSrc?: string;
+}) {
   const { company } = data;
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.brand}>Infitech</Text>
+            {logoSrc ? (
+              <Image src={logoSrc} style={styles.logo} />
+            ) : (
+              <Text style={{ fontSize: 14, fontWeight: "bold", marginBottom: 4 }}>Infitech</Text>
+            )}
             <Text>{company.name}</Text>
           </View>
           <Text style={styles.title}>НЭХЭМЖЛЭХ</Text>
@@ -169,8 +181,6 @@ export function InvoiceDocument({ data }: { data: InvoiceViewModel }) {
             <Text style={{ fontWeight: "bold" }}>{money(data.total)}</Text>
           </View>
         </View>
-
-        <Text style={styles.footerBrand}>[{company.name}]</Text>
       </Page>
     </Document>
   );

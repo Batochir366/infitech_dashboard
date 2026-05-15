@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { authMiddleware } from "../middleware/auth.middleware";
 import {
   generateInvoice,
+  generateInstallmentInvoice,
   getInvoicesByClient,
   getPublicInvoice,
   updateInvoice,
@@ -18,6 +19,9 @@ router.get("/public/:token", (req: Request, res: Response) =>
 router.use(authMiddleware);
 
 router.post("/generate", (req, res) => generateInvoice(req as AuthRequest, res));
+router.post("/generate-installment", (req, res) =>
+  generateInstallmentInvoice(req as AuthRequest, res),
+);
 router.get("/", (req, res) => getInvoicesByClient(req as AuthRequest, res));
 router.patch("/:id", (req, res) => updateInvoice(req as AuthRequest, res));
 

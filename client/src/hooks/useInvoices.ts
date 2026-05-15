@@ -23,6 +23,18 @@ export function useGenerateInvoice() {
   });
 }
 
+export function useGenerateInstallmentInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: invoiceService.generateInstallment,
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ['invoices', 'client', String(vars.clientId)],
+      });
+    },
+  });
+}
+
 export function usePublicInvoice(token: string | undefined) {
   return useQuery({
     queryKey: ['invoices', 'public', token],

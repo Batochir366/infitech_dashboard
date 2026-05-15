@@ -28,4 +28,9 @@ export const clientService = {
   deleteClient: async (id: string): Promise<void> => {
     await apiClient.delete(`/clients/${id}`);
   },
+
+  cancelRental: async (id: string): Promise<Client> => {
+    const res = await apiClient.post(`/clients/${id}/cancel-rental`);
+    return { ...res.data, id: String(res.data.id) };
+  },
 };

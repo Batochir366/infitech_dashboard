@@ -12,22 +12,22 @@ export default function ClientFormPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
-          {isEdit ? "Edit Client" : "Create New Client"}
+          {isEdit ? "Харилцагч засах" : "Харилцагч нэмэх"}
         </h2>
-        <Button variant="outline" onClick={() => navigate("/clients")}>
-          Cancel
+        <Button variant="outline" onClick={() => navigate(`/clients/${id}`)}>
+          Цуцлах
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Client Information</CardTitle>
+          <CardTitle>Харилцагчийн мэдээлэл</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClientForm 
-            clientId={id} 
-            onSuccess={() => navigate("/clients")} 
-            onCancel={() => navigate("/clients")} 
+          <ClientForm
+            clientId={id}
+            onSuccess={() => navigate(`/clients/${id}`)}
+            onCancel={() => navigate(`/clients/${id}`)}
           />
         </CardContent>
       </Card>

@@ -18,7 +18,11 @@ import {
 import { Card } from "../../components/ui/Card"
 import { Modal } from "../../components/ui/Modal"
 import { ClientForm } from "../../components/dashboard/ClientForm"
+import { Tabs } from "../../components/ui/Tabs"
 import { useNavigate } from "react-router-dom"
+import type { PaymentType } from "../../types/client"
+
+type ListTab = "all" | PaymentType
 
 export default function ClientListPage() {
   const { data: clients, isLoading } = useClients()
@@ -27,10 +31,20 @@ export default function ClientListPage() {
   const toast = useToast()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [paymentFilter, setPaymentFilter] = useState<string>("all")
+  const [listTab, setListTab] = useState<ListTab>("rent")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [addPaymentType, setAddPaymentType] = useState<PaymentType>("rent")
   const [editClientId, setEditClientId] = useState<string | null>(null)
   const navigate = useNavigate()
+
+  const canAddFromTab = listTab === "rent" || listTab === "buy"
+
+  const openAddModal = () => {
+    if (!canAddFromTab) return
+    setAddPaymentType(listTab)
+    setIsAddModalOpen(true)
+  }
+
   const filteredClients = clients?.filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -39,7 +53,8 @@ export default function ClientListPage() {
       client.phoneNumber.includes(search)
 
     const matchesStatus = statusFilter === "all" || client.status === statusFilter
-    const matchesPayment = paymentFilter === "all" || client.paymentType === paymentFilter
+    const matchesPayment =
+      listTab === "all" || client.paymentType === listTab
 
     return matchesSearch && matchesStatus && matchesPayment
   })
@@ -71,21 +86,45 @@ export default function ClientListPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Харилцагчид</h2>
-          <p className="text-muted-foreground">Системд бүртгэлтэй Харилцагчдын жагсаалт.</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsAddModalOpen(true)}>
+
+      </div>
+      <div className="flex items-center gap-2 justify-between">
+        <Tabs
+          fullWidth={false}
+          value={listTab}
+          onValueChange={(id) => setListTab(id as ListTab)}
+          items={[
+            { id: "rent", label: "Түрээс" },
+            { id: "buy", label: "Худалдан авалт" },
+          ]}
+        />
+        <Button
+          className="gap-2"
+          disabled={!canAddFromTab}
+          title={
+            canAddFromTab
+              ? undefined
+              : "Түрээс эсвэл Худалдан авалт табыг сонгоно уу"
+          }
+          onClick={openAddModal}
+        >
           <Plus size={18} />
-          <span>Нэмэх</span>
+          <span>Харилцагч нэмэх</span>
         </Button>
       </div>
-
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Шинэ Харилцагч нэмэх"
-        description="Харилцагчийн мэдээллийг доорх хэсэгт бүртгэнэ үү."
+        title={
+          addPaymentType === "rent"
+            ? "Шинэ түрээсийн харилцагч"
+            : "Шинэ худалдан авалтын харилцагч"
+        }
+        description="Ерөнхий мэдээлэл болон төлбөрийн мэдээллийг бөглөнө үү."
       >
         <ClientForm
+          defaultPaymentType={addPaymentType}
           onSuccess={() => setIsAddModalOpen(false)}
           onCancel={() => setIsAddModalOpen(false)}
         />
@@ -116,15 +155,6 @@ export default function ClientListPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <select
-              className="bg-transparent border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-            >
-              <option value="all">Бүх төрөл</option>
-              <option value="rent">Түрээс</option>
-              <option value="buy">Худалдан авалт</option>
-            </select>
             <select
               className="bg-transparent border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               value={statusFilter}
@@ -168,7 +198,7 @@ export default function ClientListPage() {
                     key={client.id}
                     className="hover:bg-muted cursor-pointer"
                   >
-                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell className="font-medium">{client.name.length > 15 ? client.name.substring(0, 15) + "..." : client.name}</TableCell>
                     <TableCell className="text-muted-foreground">{client.regNumber || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       <div>{client.phoneNumber}</div>
@@ -197,12 +227,27 @@ export default function ClientListPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {client.paymentSchedules.length > 0 ? (
+                      {client.paymentType === "rent" &&
+                        client.rentalAgreement &&
+                        client.rentalAgreement.paymentSchedules.length > 0 ? (
                         <div className="space-y-0.5">
-                          {client.paymentSchedules.map((ps, i) => (
+                          {client.rentalAgreement.paymentSchedules.map((ps, i) => (
                             <div key={i} className="whitespace-nowrap">
                               <span className="text-muted-foreground">{ps.day}-нд</span>{" "}
                               <span className="font-medium">{ps.amount.toLocaleString()}₮</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : client.paymentType === "buy" &&
+                        client.purchaseAgreement &&
+                        client.purchaseAgreement.installments.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {client.purchaseAgreement.installments.map((ins) => (
+                            <div key={ins.id} className="whitespace-nowrap">
+                              <span className="text-muted-foreground">
+                                {new Date(ins.dueDate).toLocaleDateString()}
+                              </span>{" "}
+                              <span className="font-medium">{ins.amount.toLocaleString()}₮</span>
                             </div>
                           ))}
                         </div>

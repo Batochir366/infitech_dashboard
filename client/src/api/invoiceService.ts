@@ -22,6 +22,17 @@ export const invoiceService = {
     return res.data;
   },
 
+  generateInstallment: async (body: {
+    clientId: number;
+    installmentId: number;
+  }): Promise<GenerateInvoiceResponse> => {
+    const res = await apiClient.post<GenerateInvoiceResponse>(
+      '/invoices/generate-installment',
+      body
+    );
+    return res.data;
+  },
+
   /** Returns list + company config for PDF re-download */
   listByClient: async (clientId: number): Promise<ListInvoicesResponse> => {
     const res = await apiClient.get<ListInvoicesResponse>('/invoices', {

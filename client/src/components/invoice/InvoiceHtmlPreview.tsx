@@ -1,4 +1,5 @@
 import type { InvoiceViewModel } from "../../utils/invoiceViewModel";
+import { invoiceLogoHref } from "../../utils/invoiceLogoHref";
 import { cn } from "../../utils/cn";
 
 function money(n: number) {
@@ -22,7 +23,11 @@ export function InvoiceHtmlPreview({
     >
       <div className="flex justify-between items-start mb-4">
         <div>
-          <p className="text-base font-bold">Infitech</p>
+          <img
+            src={invoiceLogoHref()}
+            alt="Infitech"
+            className="mb-1 block h-auto w-32 max-w-full object-contain object-left"
+          />
           <p className="font-semibold">{company.name}</p>
         </div>
         <h1 className="text-2xl font-bold">НЭХЭМЖЛЭХ</h1>

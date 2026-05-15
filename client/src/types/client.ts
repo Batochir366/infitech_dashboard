@@ -1,10 +1,36 @@
 export type ClientStatus = 'active' | 'inactive';
 export type PaymentType = 'rent' | 'buy';
+export type RentalAgreementStatus = 'active' | 'cancelled';
 
 export interface PaymentSchedule {
   id?: number;
   day: number;
   amount: number;
+}
+
+export interface RentalAgreement {
+  id: number;
+  clientId: number;
+  status: RentalAgreementStatus;
+  cancelledAt: string | null;
+  leaseStartAt: string;
+  rentDurationMonths: number;
+  paymentSchedules: PaymentSchedule[];
+}
+
+export interface PurchaseInstallment {
+  id: number;
+  purchaseAgreementId: number;
+  dueDate: string;
+  amount: number;
+  sortOrder: number;
+}
+
+export interface PurchaseAgreement {
+  id: number;
+  clientId: number;
+  totalPrice: number;
+  installments: PurchaseInstallment[];
 }
 
 export interface Client {
@@ -15,7 +41,6 @@ export interface Client {
   phoneNumber2?: string;
   email?: string;
   paymentType: PaymentType;
-  paymentSchedules: PaymentSchedule[];
   status: ClientStatus;
   domain?: string | null;
   systemId: number | null;
@@ -23,6 +48,8 @@ export interface Client {
   notes?: string;
   productType?: string;
   createdAt: string;
+  rentalAgreement: RentalAgreement | null;
+  purchaseAgreement: PurchaseAgreement | null;
 }
 
 export interface ClientApiResponse {
@@ -32,6 +59,17 @@ export interface ClientApiResponse {
   limit: number;
 }
 
+export interface RentalInput {
+  leaseStartAt?: string;
+  rentDurationMonths: number;
+  paymentSchedules: PaymentSchedule[];
+}
+
+export interface PurchaseInput {
+  totalPrice: number;
+  installments: { dueDate: string; amount: number }[];
+}
+
 export interface CreateClientInput {
   name: string;
   regNumber?: string;
@@ -39,10 +77,11 @@ export interface CreateClientInput {
   phoneNumber2?: string;
   email?: string;
   paymentType: PaymentType;
-  paymentSchedules: PaymentSchedule[];
   status: ClientStatus;
   domain?: string | null;
   systemId?: number | null;
   notes?: string;
   productType?: string;
+  rental?: RentalInput;
+  purchase?: PurchaseInput;
 }
